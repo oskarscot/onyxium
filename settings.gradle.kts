@@ -12,5 +12,6 @@ plugins {
 rootProject.name = "Onyxium"
 include(
     "onyxium-proxy",
-    "onyxium-backend"
+    "onyxium-backend",
+    "onyxium-api"
 )

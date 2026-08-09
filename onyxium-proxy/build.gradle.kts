@@ -3,12 +3,13 @@ plugins {
 }
 
 dependencies {
-    implementation(libs.guava)
-    implementation(libs.kwik)
+    implementation(project(":onyxium-api"))
+    implementation(libs.bouncycastle.prov)
+    implementation(libs.bouncycastle.pkix)
 
     testImplementation(libs.junit)
 }
 
 application {
-    mainClass = "dev.onyxium.proxy.App"
+    mainClass = "dev.onyxium.proxy.AppBootstrap"
 }
