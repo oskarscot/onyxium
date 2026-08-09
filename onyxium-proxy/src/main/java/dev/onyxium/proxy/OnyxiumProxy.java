@@ -4,7 +4,7 @@ import java.util.Objects;
 
 import dev.onyxium.proxy.api.ProxyServer;
 import dev.onyxium.proxy.api.network.NetworkManager;
-import dev.onyxium.proxy.io.KwikNetworkManager;
+import dev.onyxium.proxy.io.NettyNetworkManager;
 import dev.onyxium.proxy.lifecycle.Lifecycle;
 import dev.onyxium.proxy.lifecycle.LifecycleException;
 
@@ -14,9 +14,9 @@ import org.jetbrains.annotations.NotNull;
 @ApiStatus.Internal
 public final class OnyxiumProxy implements ProxyServer, Lifecycle {
 
-    private final KwikNetworkManager networkManager;
+    private final NettyNetworkManager networkManager;
 
-    public OnyxiumProxy(@NotNull KwikNetworkManager networkManager) {
+    public OnyxiumProxy(@NotNull NettyNetworkManager networkManager) {
         this.networkManager = Objects.requireNonNull(networkManager, "networkManager");
     }
 

@@ -4,7 +4,7 @@ plugins {
 
 dependencies {
     api(libs.guava)
-    api(libs.kwik)
+    api(libs.slf4j.api)
 
     testImplementation(libs.junit)
 }

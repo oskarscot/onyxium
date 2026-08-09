@@ -4,11 +4,8 @@ import java.io.IOException;
 import java.math.BigInteger;
 import java.security.GeneralSecurityException;
 import java.security.KeyPairGenerator;
-import java.security.KeyStore;
-import java.security.KeyStoreException;
 import java.security.PrivateKey;
 import java.security.SecureRandom;
-import java.security.cert.Certificate;
 import java.security.cert.X509Certificate;
 import java.security.spec.ECGenParameterSpec;
 import java.time.Duration;
@@ -62,19 +59,6 @@ public record SelfSignedCertificate(@NotNull X509Certificate certificate, @NotNu
             return new SelfSignedCertificate(certificate, keyPair.getPrivate());
         } catch (IOException | OperatorCreationException e) {
             throw new GeneralSecurityException("Failed to generate a self-signed certificate for " + commonName, e);
-        }
-    }
-
-    @NotNull
-    public KeyStore toKeyStore(@NotNull String alias, char @NotNull [] password) throws GeneralSecurityException {
-        try {
-            var keyStore = KeyStore.getInstance("PKCS12");
-            keyStore.load(null, null);
-            keyStore.setKeyEntry(alias, privateKey, password, new Certificate[] { certificate });
-
-            return keyStore;
-        } catch (IOException e) {
-            throw new KeyStoreException("Failed to assemble an in-memory PKCS12 key store", e);
         }
     }
 }
