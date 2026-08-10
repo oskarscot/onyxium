@@ -6,11 +6,14 @@ import io.netty.handler.codec.quic.QuicStreamChannel;
 import org.jetbrains.annotations.ApiStatus;
 import org.jetbrains.annotations.NotNull;
 
+import dev.onyxium.proxy.io.packet.PacketDecoder;
+
 @ApiStatus.Internal
 public final class QuicStreamInitializer extends ChannelInitializer<QuicStreamChannel> {
 
     @Override
     protected void initChannel(@NotNull QuicStreamChannel channel) {
+        channel.pipeline().addLast("decoder", new PacketDecoder());
         channel.pipeline().addLast(new QuicStreamHandler());
     }
 }

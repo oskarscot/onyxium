@@ -74,6 +74,6 @@ public final class QuicConnectionHandler extends ChannelInboundHandlerAdapter {
             return;
         }
 
-        LOGGER.debug("Connected {}", connection);
+        LOGGER.debug("Handshake complete for connection: {}", connection);
     }
 }
