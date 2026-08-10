@@ -1,16 +1,29 @@
 package dev.onyxium.proxy.io.packet.auth;
 
-import dev.onyxium.proxy.io.packet.KnownPacket;
+import java.util.UUID;
+
+import org.jetbrains.annotations.Nullable;
+
+import dev.onyxium.proxy.io.packet.ClientType;
+import dev.onyxium.proxy.io.packet.HostAddress;
+import dev.onyxium.proxy.io.packet.Packet;
 import io.netty.buffer.ByteBuf;
 
 public record Connect(
-
-) implements KnownPacket {
-
-    public static final int ID = 0;
+    int protocolCrc,
+    int protocolBuildNumber,
+    String clientVersion,
+    ClientType clientType,
+    UUID uuid,
+    @Nullable String language,
+    @Nullable String identityToken,
+    String username,
+    @Nullable byte[] referralData,
+    @Nullable HostAddress referralSource
+) implements Packet {
 
     public static Connect deserialize(ByteBuf buf) {
-        return new Connect();
+        throw new UnsupportedOperationException("Unimplemented method 'serialize'");
     }
 
     @Override
@@ -20,7 +33,7 @@ public record Connect(
 
     @Override
     public int id() {
-        return Connect.ID;
+        return 0;
     }
 
 }

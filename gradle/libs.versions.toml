@@ -9,6 +9,7 @@ hytale-server = "0.6.0-pre.11"
 bouncycastle = "1.85"
 slf4j = "2.0.18"
 logback = "1.5.38"
+fastutil = "8.5.19"
 
 [libraries]
 guava = { module = "com.google.guava:guava", version.ref = "guava" }
@@ -26,6 +27,10 @@ netty-handler = { module = "io.netty:netty-handler" }
 
 slf4j-api = { module = "org.slf4j:slf4j-api", version.ref = "slf4j" }
 logback-classic = { module = "ch.qos.logback:logback-classic", version.ref = "logback" }
+
+# Swap to it.unimi.dsi:fastutil-core (6 MB vs 22 MB) if int/long/double/object
+# specializations are all this ends up needing.
+fastutil = { module = "it.unimi.dsi:fastutil", version.ref = "fastutil" }
 
 [plugins]
 ginco-hygradle = { id = "gg.ginco.hygradle" }

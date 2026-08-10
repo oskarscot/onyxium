@@ -152,9 +152,10 @@ public final class HytaleProtocolConnection {
 
     @Override
     public String toString() {
-        return "HytaleProtocolConnection[" + this.remoteAddress
-                + ", protocol=" + this.applicationProtocol
-                + ", client=" + this.clientCertificate.getSubjectX500Principal()
-                + "]";
+        return "HytaleProtocolConnection [channel=" + channel + ", remoteAddress=" + remoteAddress
+                + ", applicationProtocol=" + applicationProtocol + ", clientCertificate=" + clientCertificate
+                + ", certificateFingerprint=" + certificateFingerprint + "]";
     }
+
+
 }

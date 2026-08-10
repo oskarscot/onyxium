@@ -14,6 +14,7 @@ dependencies {
     implementation(project(":onyxium-api"))
     implementation(libs.bouncycastle.prov)
     implementation(libs.bouncycastle.pkix)
+    implementation(libs.fastutil)
 
     implementation(platform(libs.netty.bom))
     implementation(libs.netty.transport)

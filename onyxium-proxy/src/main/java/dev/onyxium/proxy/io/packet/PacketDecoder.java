@@ -2,6 +2,7 @@ package dev.onyxium.proxy.io.packet;
 
 import java.util.List;
 
+import dev.onyxium.proxy.util.NettyUtil;
 import io.netty.buffer.ByteBuf;
 import io.netty.channel.ChannelHandlerContext;
 import io.netty.handler.codec.ByteToMessageDecoder;
@@ -23,7 +24,7 @@ public class PacketDecoder extends ByteToMessageDecoder {
 
         if (payloadLength < 0 || payloadLength > MAX_PACKET_SIZE) {
             in.skipBytes(in.readableBytes());
-            // TODO: close the stream
+            NettyUtil.closeConnection(ctx.channel());
             return;
         }
 
@@ -35,14 +36,15 @@ public class PacketDecoder extends ByteToMessageDecoder {
         }
 
         var payload = in.readRetainedSlice(payloadLength);
+        var packetInfo = PacketRegistry.findById(packetId);
         try {
-            var decoded = KnownPacket.decode(packetId, payload);
-            if (decoded == null) {
+            if (packetInfo == null) {
                 var frame = new byte[8 + payloadLength];
                 in.getBytes(originalIndex, frame);
-                out.add(new UnknownPacket(packetId, frame));
+                out.add(new UnknownPacket(frame));
             } else {
-                out.add(decoded);
+                var packet = packetInfo.factory().apply(payload);
+                out.add(packet);
             }
         } finally {
             payload.release();
