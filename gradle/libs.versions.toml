@@ -10,6 +10,8 @@ bouncycastle = "1.85"
 slf4j = "2.0.18"
 logback = "1.5.38"
 fastutil = "8.5.19"
+nimbus-jose-jwt = "10.9.1"
+spotless = "8.10.2"
 
 [libraries]
 guava = { module = "com.google.guava:guava", version.ref = "guava" }
@@ -31,6 +33,8 @@ logback-classic = { module = "ch.qos.logback:logback-classic", version.ref = "lo
 # Swap to it.unimi.dsi:fastutil-core (6 MB vs 22 MB) if int/long/double/object
 # specializations are all this ends up needing.
 fastutil = { module = "it.unimi.dsi:fastutil", version.ref = "fastutil" }
+nimbus-jose-jwt = { module = "com.nimbusds:nimbus-jose-jwt", version.ref = "nimbus-jose-jwt" }
 
 [plugins]
 ginco-hygradle = { id = "gg.ginco.hygradle" }
+spotless = { id = "com.diffplug.spotless", version.ref = "spotless" }

@@ -26,39 +26,45 @@ import org.jetbrains.annotations.NotNull;
 @ApiStatus.Internal
 public record SelfSignedCertificate(@NotNull X509Certificate certificate, @NotNull PrivateKey privateKey) {
 
-    public static final String DEFAULT_COMMON_NAME = "Hytale Server";
+	public static final String DEFAULT_COMMON_NAME = "Hytale Server";
 
-    private static final String KEY_ALGORITHM = "EC";
-    private static final String CURVE = "secp256r1";
-    private static final String SIGNATURE_ALGORITHM = "SHA256withECDSA";
-    private static final Duration VALIDITY = Duration.ofDays(365);
-    private static final Duration CLOCK_SKEW = Duration.ofMinutes(5);
-    private static final int SERIAL_BITS = 159;
+	private static final String KEY_ALGORITHM = "EC";
 
-    @NotNull
-    public static SelfSignedCertificate generate(@NotNull String commonName) throws GeneralSecurityException {
-        var keyPairGenerator = KeyPairGenerator.getInstance(KEY_ALGORITHM);
-        keyPairGenerator.initialize(new ECGenParameterSpec(CURVE));
-        var keyPair = keyPairGenerator.generateKeyPair();
+	private static final String CURVE = "secp256r1";
 
-        var now = Instant.now();
-        var notBefore = Date.from(now.minus(CLOCK_SKEW));
-        var notAfter = Date.from(now.plus(VALIDITY));
+	private static final String SIGNATURE_ALGORITHM = "SHA256withECDSA";
 
-        var name = new X500Principal("CN=" + commonName);
-        var serial = new BigInteger(SERIAL_BITS, new SecureRandom());
+	private static final Duration VALIDITY = Duration.ofDays(365);
 
-        try {
-            var certificateBuilder = new JcaX509v3CertificateBuilder(
-                    name, serial, notBefore, notAfter, name, keyPair.getPublic())
-                    .addExtension(Extension.basicConstraints, true, new BasicConstraints(false));
+	private static final Duration CLOCK_SKEW = Duration.ofMinutes(5);
 
-            var signer = new JcaContentSignerBuilder(SIGNATURE_ALGORITHM).build(keyPair.getPrivate());
-            var certificate = new JcaX509CertificateConverter().getCertificate(certificateBuilder.build(signer));
+	private static final int SERIAL_BITS = 159;
 
-            return new SelfSignedCertificate(certificate, keyPair.getPrivate());
-        } catch (IOException | OperatorCreationException e) {
-            throw new GeneralSecurityException("Failed to generate a self-signed certificate for " + commonName, e);
-        }
-    }
+	@NotNull
+	public static SelfSignedCertificate generate(@NotNull String commonName) throws GeneralSecurityException {
+		var keyPairGenerator = KeyPairGenerator.getInstance(KEY_ALGORITHM);
+		keyPairGenerator.initialize(new ECGenParameterSpec(CURVE));
+		var keyPair = keyPairGenerator.generateKeyPair();
+
+		var now = Instant.now();
+		var notBefore = Date.from(now.minus(CLOCK_SKEW));
+		var notAfter = Date.from(now.plus(VALIDITY));
+
+		var name = new X500Principal("CN=" + commonName);
+		var serial = new BigInteger(SERIAL_BITS, new SecureRandom());
+
+		try {
+			var certificateBuilder = new JcaX509v3CertificateBuilder(name, serial, notBefore, notAfter, name,
+					keyPair.getPublic())
+				.addExtension(Extension.basicConstraints, true, new BasicConstraints(false));
+
+			var signer = new JcaContentSignerBuilder(SIGNATURE_ALGORITHM).build(keyPair.getPrivate());
+			var certificate = new JcaX509CertificateConverter().getCertificate(certificateBuilder.build(signer));
+
+			return new SelfSignedCertificate(certificate, keyPair.getPrivate());
+		}
+		catch (IOException | OperatorCreationException e) {
+			throw new GeneralSecurityException("Failed to generate a self-signed certificate for " + commonName, e);
+		}
+	}
 }

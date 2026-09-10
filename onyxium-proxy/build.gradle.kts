@@ -15,6 +15,7 @@ dependencies {
     implementation(libs.bouncycastle.prov)
     implementation(libs.bouncycastle.pkix)
     implementation(libs.fastutil)
+    implementation(libs.nimbus.jose.jwt)
 
     implementation(platform(libs.netty.bom))
     implementation(libs.netty.transport)

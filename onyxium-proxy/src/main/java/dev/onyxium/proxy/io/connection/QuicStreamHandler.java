@@ -1,54 +1,71 @@
 package dev.onyxium.proxy.io.connection;
 
-import dev.onyxium.proxy.api.network.NetworkChannel;
-import dev.onyxium.proxy.io.packet.Packet;
 import io.netty.channel.ChannelHandlerContext;
 import io.netty.channel.SimpleChannelInboundHandler;
+import io.netty.channel.socket.ChannelInputShutdownEvent;
+import io.netty.channel.socket.ChannelOutputShutdownEvent;
 import io.netty.handler.codec.quic.QuicStreamChannel;
-
-import org.jetbrains.annotations.ApiStatus;
 import org.jetbrains.annotations.NotNull;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
-@ApiStatus.Internal
+import dev.onyxium.proxy.api.message.FormattedMessage;
+import dev.onyxium.proxy.io.packet.Packet;
+
 public final class QuicStreamHandler extends SimpleChannelInboundHandler<Packet> {
 
-    private static final Logger LOGGER = LoggerFactory.getLogger(QuicStreamHandler.class);
+	private static final Logger LOGGER = LoggerFactory.getLogger(QuicStreamHandler.class);
 
-    @Override
-    public void channelActive(@NotNull ChannelHandlerContext context) {
-        var streamChannel = (QuicStreamChannel) context.channel();
-        var connection = HytaleProtocolConnection.of(streamChannel);
+	private HytaleProtocolConnection connection;
 
-        if (connection == null) {
-            context.close();
-            return;
-        }
+	private boolean gameStream;
 
-        var networkChannel = NetworkChannel.fromStreamId(streamChannel.streamId());
-        if (networkChannel == null) {
-            LOGGER.debug("Ignoring stream {} on {}: no known channel", streamChannel.streamId(), connection);
-            context.close();
+	@Override
+	public void channelActive(@NotNull ChannelHandlerContext context) {
+		var stream = (QuicStreamChannel) context.channel();
+		connection = HytaleProtocolConnection.of(stream);
+		gameStream = connection != null && connection.openGameStream(stream);
+		if (!gameStream) {
+			context.close();
+			return;
+		}
+		context.fireChannelActive();
+	}
 
-            return;
-        }
+	@Override
+	protected void channelRead0(@NotNull ChannelHandlerContext context, @NotNull Packet packet) {
+		if (gameStream) {
+			connection.receive(packet);
+		}
+	}
 
-        LOGGER.debug("Opened {} stream {} on {}", networkChannel, streamChannel.streamId(), connection);
-        context.fireChannelActive();
-    }
+	@Override
+	public void channelInactive(@NotNull ChannelHandlerContext context) {
+		if (gameStream && connection.active()) {
+			connection.close();
+		}
+		context.fireChannelInactive();
+	}
 
-    @Override
-    protected void channelRead0(@NotNull ChannelHandlerContext context, @NotNull Packet message) {
-        // TODO: decode Hytale packets once the protocol layer exists
-        LOGGER.trace("Discarding {} on stream {}",
-                message.toString(), ((QuicStreamChannel) context.channel()).streamId());
-    }
+	@Override
+	public void userEventTriggered(@NotNull ChannelHandlerContext context, @NotNull Object event) {
+		if (gameStream && (event instanceof ChannelInputShutdownEvent || event instanceof ChannelOutputShutdownEvent)
+				&& connection.active()) {
+			connection.close();
+		}
+		context.fireUserEventTriggered(event);
+	}
 
-    @Override
-    public void exceptionCaught(@NotNull ChannelHandlerContext context, @NotNull Throwable cause) {
-        LOGGER.debug("Closing stream {} after an unhandled error",
-                ((QuicStreamChannel) context.channel()).streamId(), cause);
-        context.close();
-    }
+	@Override
+	public void exceptionCaught(@NotNull ChannelHandlerContext context, @NotNull Throwable cause) {
+		LOGGER.debug("Packet error from {} ({})", connection, cause.getClass().getSimpleName());
+		if (gameStream) {
+			connection.disconnect(FormattedMessage.text("Malformed or unexpected packet."),
+					DisconnectErrorCode.AUTH_FAILED);
+		}
+		else {
+			context.close();
+		}
+	}
+
 }

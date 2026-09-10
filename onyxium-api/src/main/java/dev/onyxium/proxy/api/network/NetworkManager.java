@@ -4,8 +4,9 @@ import org.jetbrains.annotations.NotNull;
 
 public interface NetworkManager {
 
-    @NotNull
-    NetworkInfo networkInfo();
+	@NotNull
+	NetworkInfo networkInfo();
 
-    boolean running();
+	boolean running();
+
 }

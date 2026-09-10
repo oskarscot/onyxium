@@ -8,154 +8,283 @@ import java.security.cert.CertificateEncodingException;
 import java.security.cert.X509Certificate;
 import java.util.Base64;
 import java.util.Objects;
+import java.util.concurrent.TimeUnit;
 
 import javax.net.ssl.SSLPeerUnverifiedException;
 import javax.net.ssl.SSLSession;
 
+import io.netty.buffer.Unpooled;
 import io.netty.channel.Channel;
 import io.netty.handler.codec.quic.QuicChannel;
 import io.netty.handler.codec.quic.QuicStreamChannel;
 import io.netty.util.AttributeKey;
-
+import io.netty.util.concurrent.EventExecutor;
 import org.jetbrains.annotations.ApiStatus;
 import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
 
-/// Per-connection state for a single Hytale client, attached to the [QuicChannel] once the TLS
-/// handshake has completed.
-///
-/// Hytale clients authenticate with a TLS client certificate, so the certificate only exists after
-/// the handshake; it is captured here rather than being re-read from the [javax.net.ssl.SSLEngine]
-/// on every use.
+import dev.onyxium.proxy.api.message.FormattedMessage;
+import dev.onyxium.proxy.io.packet.FormattedMessageCodec;
+import dev.onyxium.proxy.io.packet.Packet;
+import dev.onyxium.proxy.io.packet.PacketDecoder;
+import dev.onyxium.proxy.io.packet.connection.ServerDisconnect;
+import dev.onyxium.proxy.io.packet.handler.GenericPacketHandler;
+
 @ApiStatus.Internal
-public final class HytaleProtocolConnection {
+public final class HytaleProtocolConnection implements ProtocolConnection {
 
-    private static final AttributeKey<HytaleProtocolConnection> ATTRIBUTE =
-            AttributeKey.valueOf(HytaleProtocolConnection.class, "connection");
+	private static final AttributeKey<HytaleProtocolConnection> ATTRIBUTE = AttributeKey
+		.valueOf(HytaleProtocolConnection.class, "connection");
 
-    private final QuicChannel channel;
-    private final SocketAddress remoteAddress;
-    private final String applicationProtocol;
-    private final X509Certificate clientCertificate;
-    private final String certificateFingerprint;
+	private final QuicChannel channel;
 
-    private HytaleProtocolConnection(
-            @NotNull QuicChannel channel,
-            @NotNull SocketAddress remoteAddress,
-            @NotNull String applicationProtocol,
-            @NotNull X509Certificate clientCertificate,
-            @NotNull String certificateFingerprint) {
-        this.channel = channel;
-        this.remoteAddress = remoteAddress;
-        this.applicationProtocol = applicationProtocol;
-        this.clientCertificate = clientCertificate;
-        this.certificateFingerprint = certificateFingerprint;
-    }
+	private final SocketAddress remoteAddress;
 
-    /// Captures the negotiated protocol and the client certificate from the completed handshake and
-    /// attaches the resulting connection to the channel.
-    ///
-    /// @return the attached connection, or `null` when the peer did not present a usable X.509
-    ///         certificate; the caller is expected to close the channel in that case
-    @Nullable
-    static HytaleProtocolConnection attach(@NotNull QuicChannel channel) {
-        Objects.requireNonNull(channel, "channel");
+	private final String applicationProtocol;
 
-        var sslEngine = channel.sslEngine();
-        if (sslEngine == null) {
-            return null;
-        }
+	private final X509Certificate clientCertificate;
 
-        var clientCertificate = peerCertificate(sslEngine.getSession());
-        if (clientCertificate == null) {
-            return null;
-        }
+	private final String certificateFingerprint;
 
-        MessageDigest encoder;
-        byte[] digest;
-        try {
-            encoder = MessageDigest.getInstance("SHA-256");
-            digest = encoder.digest(clientCertificate.getEncoded());
-        } catch (NoSuchAlgorithmException | CertificateEncodingException e) {
-            e.printStackTrace();
-            return null;
-        }
+	private final String serverCertificateFingerprint;
 
-        var fingerprint = Base64.getUrlEncoder().withoutPadding().encodeToString(digest);
+	private QuicStreamChannel gameStream;
 
-        var applicationProtocol = Objects.requireNonNullElse(sslEngine.getApplicationProtocol(), "");
-        // Captured now because the channel reports a null address once it is closed, which is
-        // exactly when the disconnect is logged.
-        var connection = new HytaleProtocolConnection(
-                channel, channel.remoteSocketAddress(), applicationProtocol, clientCertificate, fingerprint);
-        channel.attr(ATTRIBUTE).set(connection);
+	private GenericPacketHandler packetHandler;
 
-        return connection;
-    }
-    
-    /// Looks up the connection for a [QuicChannel] or one of its [QuicStreamChannel]s.
-    ///
-    /// @return the connection, or `null` when the handshake has not completed yet
-    @Nullable
-    public static HytaleProtocolConnection of(@NotNull Channel channel) {
-        Objects.requireNonNull(channel, "channel");
+	private volatile boolean closing;
 
-        var owner = channel instanceof QuicStreamChannel streamChannel ? streamChannel.parent() : channel;
-        return owner == null ? null : owner.attr(ATTRIBUTE).get();
-    }
+	private HytaleProtocolConnection(QuicChannel channel, String applicationProtocol, X509Certificate clientCertificate,
+			String serverFingerprint) {
+		this.channel = channel;
+		remoteAddress = channel.remoteSocketAddress();
+		this.applicationProtocol = applicationProtocol;
+		this.clientCertificate = clientCertificate;
+		certificateFingerprint = fingerprint(clientCertificate);
+		serverCertificateFingerprint = serverFingerprint;
+	}
 
-    @Nullable
-    private static X509Certificate peerCertificate(@NotNull SSLSession session) {
-        Certificate[] peerCertificates;
-        try {
-            peerCertificates = session.getPeerCertificates();
-        } catch (SSLPeerUnverifiedException e) {
-            return null;
-        }
+	/// Captures both certificates from the actual TLS session, binding mutual
+	/// authentication
+	/// to the certificates used on this connection rather than independently generated
+	/// keys.
+	@Nullable
+	static HytaleProtocolConnection attach(@NotNull QuicChannel channel) {
+		var engine = channel.sslEngine();
+		if (engine == null) {
+			return null;
+		}
+		var session = engine.getSession();
+		var peer = peerCertificate(session);
+		var local = session.getLocalCertificates();
+		if (peer == null || local == null || local.length == 0 || !(local[0] instanceof X509Certificate server)) {
+			return null;
+		}
+		var connection = new HytaleProtocolConnection(channel,
+				Objects.requireNonNullElse(engine.getApplicationProtocol(), ""), peer, fingerprint(server));
+		channel.attr(ATTRIBUTE).set(connection);
+		channel.closeFuture().addListener(ignored -> connection.closed());
+		return connection;
+	}
 
-        // The peer's own certificate is always first; anything after it is the chain it was signed with.
-        return peerCertificates.length > 0 && peerCertificates[0] instanceof X509Certificate certificate
-                ? certificate
-                : null;
-    }
+	@Nullable
+	public static HytaleProtocolConnection of(@NotNull Channel channel) {
+		var owner = channel instanceof QuicStreamChannel stream ? stream.parent() : channel;
+		return owner == null ? null : owner.attr(ATTRIBUTE).get();
+	}
 
-    @NotNull
-    public QuicChannel channel() {
-        return this.channel;
-    }
+	@Nullable
+	private static X509Certificate peerCertificate(SSLSession session) {
+		Certificate[] certificates;
+		try {
+			certificates = session.getPeerCertificates();
+		}
+		catch (SSLPeerUnverifiedException exception) {
+			return null;
+		}
+		return certificates.length > 0 && certificates[0] instanceof X509Certificate certificate ? certificate : null;
+	}
 
-    /// The client's UDP address as seen at handshake time. Remains readable after the channel has
-    /// closed, unlike [QuicChannel#remoteSocketAddress()].
-    @NotNull
-    public SocketAddress remoteAddress() {
-        return this.remoteAddress;
-    }
+	private static String fingerprint(X509Certificate certificate) {
+		try {
+			var digest = MessageDigest.getInstance("SHA-256").digest(certificate.getEncoded());
+			return Base64.getUrlEncoder().withoutPadding().encodeToString(digest);
+		}
+		catch (NoSuchAlgorithmException | CertificateEncodingException exception) {
+			throw new IllegalStateException("Cannot fingerprint TLS certificate", exception);
+		}
+	}
 
-    /// The ALPN protocol negotiated for this connection
-    @NotNull
-    public String applicationProtocol() {
-        return this.applicationProtocol;
-    }
+	public boolean openGameStream(QuicStreamChannel stream) {
+		requireEventLoop();
+		if (!active() || stream.streamId() != 0 || gameStream != null) {
+			return false;
+		}
+		gameStream = stream;
+		return true;
+	}
 
-    /// The certificate the client authenticated with. It is self-signed and deliberately not
-    /// validated against a trust store: identity is established from its contents, not its issuer.
-    @NotNull
-    public X509Certificate clientCertificate() {
-        return this.clientCertificate;
-    }
+	public void receive(Packet packet) {
+		requireEventLoop();
+		if (active() && packetHandler != null) {
+			packetHandler.accept(packet);
+		}
+	}
 
-    /// Returns the base64 unpadded fingerprint of the certificate used for comparison with the session token (x5t#S256)
-    @NotNull
-    public String certificateFingerprint() {
-        return this.certificateFingerprint;
-    }
+	@Override
+	public void setPacketHandler(GenericPacketHandler handler) {
+		requireEventLoop();
+		Objects.requireNonNull(handler);
+		if (!active()) {
+			return;
+		}
+		if (packetHandler != null) {
+			packetHandler.deactivated();
+		}
+		packetHandler = handler;
+		handler.activated();
+	}
 
-    @Override
-    public String toString() {
-        return "HytaleProtocolConnection [channel=" + channel + ", remoteAddress=" + remoteAddress
-                + ", applicationProtocol=" + applicationProtocol + ", clientCertificate=" + clientCertificate
-                + ", certificateFingerprint=" + certificateFingerprint + "]";
-    }
+	@Override
+	public void write(Packet packet) {
+		requireEventLoop();
+		if (!active()) {
+			return;
+		}
+		if (gameStream == null || !gameStream.isActive()) {
+			close();
+			return;
+		}
+		gameStream.writeAndFlush(packet).addListener(result -> {
+			if (!result.isSuccess()) {
+				close();
+			}
+		});
+	}
 
+	@Override
+	public void disconnect(FormattedMessage reason, DisconnectErrorCode errorCode) {
+		requireEventLoop();
+		Objects.requireNonNull(reason);
+		Objects.requireNonNull(errorCode);
+		if (!active()) {
+			return;
+		}
+		closing = true;
+		deactivateHandler();
+		if (gameStream == null || !gameStream.isActive()) {
+			closeTransport(reason, errorCode);
+			return;
+		}
+		var fallback = eventLoop().schedule(() -> closeTransport(reason, errorCode), 1, TimeUnit.SECONDS);
+		gameStream.writeAndFlush(new ServerDisconnect(reason, errorCode == DisconnectErrorCode.CRASH))
+			.addListener(ignored -> {
+				fallback.cancel(false);
+				closeTransport(reason, errorCode);
+			});
+	}
+
+	private void closeTransport(FormattedMessage reason, DisconnectErrorCode errorCode) {
+		if (!channel.isActive()) {
+			return;
+		}
+		var bytes = channel.alloc().buffer();
+		try {
+			FormattedMessageCodec.serialize(bytes, reason);
+			if (bytes.readableBytes() > 1024) {
+				bytes.clear();
+				FormattedMessageCodec.serialize(bytes, FormattedMessage.text("Disconnected from proxy."));
+			}
+		}
+		catch (RuntimeException exception) {
+			bytes.release();
+			channel.close(true, errorCode.code(), Unpooled.EMPTY_BUFFER);
+			return;
+		}
+		channel.close(true, errorCode.code(), bytes);
+	}
+
+	@Override
+	public void close() {
+		requireEventLoop();
+		closing = true;
+		deactivateHandler();
+		channel.close(true, DisconnectErrorCode.NO_ERROR.code(), Unpooled.EMPTY_BUFFER);
+	}
+
+	private void closed() {
+		closing = true;
+		deactivateHandler();
+	}
+
+	private void deactivateHandler() {
+		var previous = packetHandler;
+		packetHandler = null;
+		if (previous != null) {
+			previous.deactivated();
+		}
+	}
+
+	private void requireEventLoop() {
+		if (!eventLoop().inEventLoop()) {
+			throw new IllegalStateException("Connection mutation outside its event loop");
+		}
+	}
+
+	@Override
+	public void onClose(Runnable listener) {
+		channel.closeFuture().addListener(ignored -> listener.run());
+	}
+
+	@Override
+	public void authenticated() {
+		requireEventLoop();
+		if (gameStream != null) {
+			gameStream.pipeline().get(PacketDecoder.class).authenticated();
+		}
+	}
+
+	@Override
+	public EventExecutor eventLoop() {
+		return channel.eventLoop();
+	}
+
+	@Override
+	public boolean active() {
+		return !closing && channel.isActive();
+	}
+
+	public QuicChannel channel() {
+		return channel;
+	}
+
+	@Override
+	public SocketAddress remoteAddress() {
+		return remoteAddress;
+	}
+
+	public String applicationProtocol() {
+		return applicationProtocol;
+	}
+
+	public X509Certificate clientCertificate() {
+		return clientCertificate;
+	}
+
+	@Override
+	public String certificateFingerprint() {
+		return certificateFingerprint;
+	}
+
+	@Override
+	public String serverCertificateFingerprint() {
+		return serverCertificateFingerprint;
+	}
+
+	@Override
+	public String toString() {
+		return "HytaleProtocolConnection[remoteAddress=" + remoteAddress + ", applicationProtocol="
+				+ applicationProtocol + "]";
+	}
 
 }

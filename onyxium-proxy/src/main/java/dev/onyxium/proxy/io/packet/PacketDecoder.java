@@ -2,53 +2,57 @@ package dev.onyxium.proxy.io.packet;
 
 import java.util.List;
 
-import dev.onyxium.proxy.util.NettyUtil;
 import io.netty.buffer.ByteBuf;
 import io.netty.channel.ChannelHandlerContext;
 import io.netty.handler.codec.ByteToMessageDecoder;
+import io.netty.handler.codec.CorruptedFrameException;
 
-public class PacketDecoder extends ByteToMessageDecoder {
+public final class PacketDecoder extends ByteToMessageDecoder {
 
-    /// make sure it matches Hytale's generated protocol!
-    private static final int MAX_PACKET_SIZE = 1677721600;
+	public static final int LOGIN_MAX_FRAME_SIZE = 64 * 1024;
 
-    /// [length 4 bytes LE][packedId 4 bytes LE][payload]
-    @Override
-    protected void decode(ChannelHandlerContext ctx, ByteBuf in, List<Object> out) throws Exception {
-        if (in.readableBytes() < 8) {
-            return;
-        }
+	public static final int FORWARDING_MAX_FRAME_SIZE = 16 * 1024 * 1024;
 
-        var originalIndex = in.readerIndex();
-        var payloadLength = in.readIntLE();
+	private int maxFrameSize = LOGIN_MAX_FRAME_SIZE;
 
-        if (payloadLength < 0 || payloadLength > MAX_PACKET_SIZE) {
-            in.skipBytes(in.readableBytes());
-            NettyUtil.closeConnection(ctx.channel());
-            return;
-        }
+	/// Must be called on the stream's event loop after authentication.
+	public void authenticated() {
+		maxFrameSize = FORWARDING_MAX_FRAME_SIZE;
+	}
 
-        var packetId = in.readIntLE();
-
-        if (in.readableBytes() < payloadLength) {
-            in.readerIndex(originalIndex);
-            return;
-        }
-
-        var payload = in.readRetainedSlice(payloadLength);
-        var packetInfo = PacketRegistry.findById(packetId);
-        try {
-            if (packetInfo == null) {
-                var frame = new byte[8 + payloadLength];
-                in.getBytes(originalIndex, frame);
-                out.add(new UnknownPacket(frame));
-            } else {
-                var packet = packetInfo.factory().apply(payload);
-                out.add(packet);
-            }
-        } finally {
-            payload.release();
-        }
-    }
+	/// [payload length: 4 bytes LE][packet id: 4 bytes LE][payload]
+	@Override
+	protected void decode(ChannelHandlerContext ctx, ByteBuf in, List<Object> out) {
+		if (in.readableBytes() < 8)
+			return;
+		var start = in.readerIndex();
+		var length = in.getIntLE(start);
+		var id = in.getIntLE(start + 4);
+		var info = PacketRegistry.findById(id);
+		if (id < 0 || length < 0 || length > maxFrameSize
+				|| (info != null && (length < info.minSize() || length > info.maxSize()))) {
+			in.skipBytes(in.readableBytes());
+			throw new CorruptedFrameException("Invalid packet header (id=" + id + ", length=" + length + ")");
+		}
+		if (in.readableBytes() - 8 < length)
+			return;
+		in.skipBytes(8);
+		var payload = in.readSlice(length);
+		if (info == null) {
+			var frame = new byte[8 + length];
+			in.getBytes(start, frame);
+			out.add(new UnknownPacket(frame));
+			return;
+		}
+		try {
+			var packet = info.factory().apply(payload);
+			if (payload.isReadable())
+				throw new CorruptedFrameException("Trailing packet data");
+			out.add(packet);
+		}
+		catch (IndexOutOfBoundsException | IllegalArgumentException exception) {
+			throw new CorruptedFrameException("Malformed packet " + id);
+		}
+	}
 
 }

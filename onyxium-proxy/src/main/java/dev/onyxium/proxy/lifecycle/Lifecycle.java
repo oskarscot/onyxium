@@ -5,7 +5,8 @@ import org.jetbrains.annotations.ApiStatus;
 @ApiStatus.Internal
 public interface Lifecycle {
 
-    void start() throws LifecycleException;
+	void start() throws LifecycleException;
 
-    void stop();
+	void stop();
+
 }
