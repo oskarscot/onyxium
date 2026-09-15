@@ -13,6 +13,14 @@ public final class QuicStreamInitializer extends ChannelInitializer<QuicStreamCh
 
 	@Override
 	protected void initChannel(@NotNull QuicStreamChannel channel) {
+		if (channel.streamId() != 0) {
+			var connection = HytaleProtocolConnection.of(channel);
+			if (connection == null)
+				channel.close();
+			else
+				connection.openAuxiliaryStream(channel);
+			return;
+		}
 		channel.pipeline().addLast("decoder", new PacketDecoder());
 		channel.pipeline().addLast("encoder", new PacketEncoder());
 		channel.pipeline().addLast(new QuicStreamHandler());

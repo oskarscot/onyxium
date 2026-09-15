@@ -9,6 +9,7 @@ import java.security.cert.X509Certificate;
 import java.util.Base64;
 import java.util.Objects;
 import java.util.concurrent.TimeUnit;
+import java.util.function.Consumer;
 
 import javax.net.ssl.SSLPeerUnverifiedException;
 import javax.net.ssl.SSLSession;
@@ -53,6 +54,43 @@ public final class HytaleProtocolConnection implements ProtocolConnection {
 	private GenericPacketHandler packetHandler;
 
 	private volatile boolean closing;
+
+	private Consumer<QuicStreamChannel> auxiliaryStreams;
+
+	private Runnable writabilityChanged = () -> {
+	};
+
+	public void auxiliaryStreams(Consumer<QuicStreamChannel> handler) {
+		requireEventLoop();
+		auxiliaryStreams = handler;
+	}
+
+	public void openAuxiliaryStream(QuicStreamChannel stream) {
+		requireEventLoop();
+		if (active() && auxiliaryStreams != null)
+			auxiliaryStreams.accept(stream);
+		else
+			stream.close();
+	}
+
+	public void readEnabled(boolean enabled) {
+		requireEventLoop();
+		if (gameStream != null)
+			gameStream.config().setAutoRead(enabled);
+	}
+
+	public boolean gameStreamWritable() {
+		return active() && gameStream != null && gameStream.isWritable();
+	}
+
+	public void onWritabilityChanged(Runnable listener) {
+		requireEventLoop();
+		writabilityChanged = Objects.requireNonNull(listener);
+	}
+
+	void writabilityChanged() {
+		writabilityChanged.run();
+	}
 
 	private HytaleProtocolConnection(QuicChannel channel, String applicationProtocol, X509Certificate clientCertificate,
 			String serverFingerprint) {

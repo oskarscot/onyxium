@@ -52,7 +52,7 @@ public final class HytaleAuthenticationService implements AuthenticationService 
 		validator = new JwtValidator(configuration.sessionService().toString(), configuration.audience(),
 				sessions::jwks, clock);
 		if (configuration.configured()) {
-			refreshTimer.scheduleWithFixedDelay(() -> maintainSession().exceptionally(failure -> {
+			refreshTimer.scheduleWithFixedDelay(() -> maintainSession().exceptionally(_ -> {
 				LOGGER.warn("Unable to refresh proxy authentication" + " session");
 				return null;
 			}), 0, 1, TimeUnit.MINUTES);

@@ -2,6 +2,7 @@ package dev.onyxium.proxy.io;
 
 import java.net.InetSocketAddress;
 import java.security.GeneralSecurityException;
+import java.util.List;
 import java.util.Objects;
 import java.util.concurrent.TimeUnit;
 import java.util.function.Consumer;
@@ -31,6 +32,9 @@ import dev.onyxium.proxy.api.network.NetworkManager;
 import dev.onyxium.proxy.auth.AuthConfiguration;
 import dev.onyxium.proxy.auth.AuthenticationService;
 import dev.onyxium.proxy.auth.HytaleAuthenticationService;
+import dev.onyxium.proxy.backend.BackendConfiguration;
+import dev.onyxium.proxy.backend.BackendConnector;
+import dev.onyxium.proxy.config.ProxyConfiguration;
 import dev.onyxium.proxy.io.connection.QuicConnectionInitializer;
 import dev.onyxium.proxy.io.connection.QuicStreamInitializer;
 import dev.onyxium.proxy.io.packet.ProtocolVersion;
@@ -52,11 +56,17 @@ public final class NettyNetworkManager implements NetworkManager, Lifecycle {
 
 	private final AuthenticationService providedAuthentication;
 
+	private final AuthConfiguration authenticationConfiguration;
+
+	private final List<BackendConfiguration> backendConfigurations;
+
 	private final String password;
 
 	private final Consumer<ProxyPlayer> onAuthenticated;
 
 	private AuthenticationService authentication;
+
+	private BackendConnector backendConnector;
 
 	private EventLoopGroup eventLoopGroup;
 
@@ -64,17 +74,24 @@ public final class NettyNetworkManager implements NetworkManager, Lifecycle {
 
 	private volatile boolean running;
 
-	public NettyNetworkManager(@NotNull InetSocketAddress bindAddress) {
-		this(bindAddress, null, System.getenv("ONYXIUM_PASSWORD"), _ -> {
-		});
+	public NettyNetworkManager(ProxyConfiguration configuration, AuthConfiguration authenticationConfiguration) {
+		networkInfo = NetworkInfo.of(configuration.bindAddress());
+		this.authenticationConfiguration = Objects.requireNonNull(authenticationConfiguration,
+				"authenticationConfiguration");
+		backendConfigurations = configuration.initialBackends();
+		password = configuration.password();
+		providedAuthentication = null;
+		onAuthenticated = null;
 	}
 
 	public NettyNetworkManager(InetSocketAddress bindAddress, AuthenticationService authentication, String password,
 			Consumer<ProxyPlayer> onAuthenticated) {
 		this.networkInfo = NetworkInfo.of(Objects.requireNonNull(bindAddress, "bindAddress"));
-		this.providedAuthentication = authentication;
+		this.providedAuthentication = Objects.requireNonNull(authentication, "authentication");
+		this.authenticationConfiguration = null;
+		this.backendConfigurations = List.of();
 		this.password = password;
-		this.onAuthenticated = Objects.requireNonNull(onAuthenticated);
+		this.onAuthenticated = Objects.requireNonNull(onAuthenticated, "onAuthenticated");
 	}
 
 	public PlayerRegistry players() {
@@ -102,16 +119,16 @@ public final class NettyNetworkManager implements NetworkManager, Lifecycle {
 			throw new LifecycleException("Listener is already running on " + this.networkInfo.bindAddress());
 		}
 
-		var configuration = AuthConfiguration.fromEnvironment();
-		this.authentication = providedAuthentication != null ? providedAuthentication
-				: new HytaleAuthenticationService(configuration);
-		if (providedAuthentication == null && !configuration.configured()) {
-			LOGGER.warn("Set HYTALE_SERVER_SESSION_TOKEN and HYTALE_SERVER_IDENTITY_TOKEN to enable"
-					+ " player authentication");
+		if (providedAuthentication == null && !authenticationConfiguration.configured()) {
+			throw new LifecycleException("Complete Hytale device login before starting the proxy");
 		}
-		this.eventLoopGroup = new MultiThreadIoEventLoopGroup(NioIoHandler.newFactory());
 
 		try {
+			this.authentication = providedAuthentication != null ? providedAuthentication
+					: new HytaleAuthenticationService(authenticationConfiguration);
+			this.eventLoopGroup = new MultiThreadIoEventLoopGroup(NioIoHandler.newFactory());
+			if (onAuthenticated == null)
+				backendConnector = new BackendConnector(backendConfigurations);
 			this.channel = new Bootstrap().group(this.eventLoopGroup)
 				.channel(NioDatagramChannel.class)
 				.option(ChannelOption.SO_REUSEADDR, true)
@@ -151,10 +168,14 @@ public final class NettyNetworkManager implements NetworkManager, Lifecycle {
 	}
 
 	private void shutdownEventLoopGroup() {
-		this.eventLoopGroup.shutdownGracefully().syncUninterruptibly();
-		this.eventLoopGroup = null;
-		this.authentication.close();
-		this.authentication = null;
+		if (this.eventLoopGroup != null) {
+			this.eventLoopGroup.shutdownGracefully().syncUninterruptibly();
+			this.eventLoopGroup = null;
+		}
+		if (this.authentication != null) {
+			this.authentication.close();
+			this.authentication = null;
+		}
 	}
 
 	private ChannelHandler createCodec() throws GeneralSecurityException {
@@ -170,8 +191,8 @@ public final class NettyNetworkManager implements NetworkManager, Lifecycle {
 			.initialMaxStreamDataUnidirectional(QuicTransportParameters.STREAM_BUFFER_SIZE)
 			.initialMaxStreamsBidirectional(QuicTransportParameters.MAX_CONCURRENT_BIDIRECTIONAL_STREAMS)
 			.initialMaxStreamsUnidirectional(QuicTransportParameters.MAX_CONCURRENT_UNIDIRECTIONAL_STREAMS)
-			.handler(new QuicConnectionInitializer(
-					new LoginContext(authentication, players, ProtocolVersion.CURRENT, password, onAuthenticated)))
+			.handler(new QuicConnectionInitializer(new LoginContext(authentication, players, ProtocolVersion.CURRENT,
+					password, onAuthenticated == null ? backendConnector::connect : onAuthenticated)))
 			.streamHandler(new QuicStreamInitializer())
 			.build();
 	}

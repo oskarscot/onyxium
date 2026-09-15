@@ -102,7 +102,7 @@ public final class ProxyPlayer implements Player {
 
 	@Override
 	public String toString() {
-		return "ProxyPlayer[uniqueId=" + uuid() + ", username=" + username() + "]";
+		return "ProxyPlayer[uuid=" + uuid() + ", username=" + username() + "]";
 	}
 
 }

@@ -1,5 +1,5 @@
 plugins {
-    application
+    alias(libs.plugins.shadow)
 }
 
 val quicNativePlatforms = listOf(
@@ -12,6 +12,9 @@ val quicNativePlatforms = listOf(
 
 dependencies {
     implementation(project(":onyxium-api"))
+    implementation(project(":onyxium-forwarding"))
+    implementation(libs.okaeri.configs.yaml)
+    implementation(libs.okaeri.configs.validator)
     implementation(libs.bouncycastle.prov)
     implementation(libs.bouncycastle.pkix)
     implementation(libs.fastutil)
@@ -33,9 +36,21 @@ dependencies {
 
 val nativeAccess = listOf("--enable-native-access=ALL-UNNAMED")
 
-application {
-    mainClass = "dev.onyxium.proxy.AppBootstrap"
-    applicationDefaultJvmArgs = nativeAccess
+tasks.jar {
+    archiveClassifier = "plain"
+}
+
+tasks.shadowJar {
+    archiveClassifier = ""
+    manifest.attributes(
+        "Main-Class" to "dev.onyxium.proxy.AppBootstrap",
+        "Enable-Native-Access" to "ALL-UNNAMED",
+    )
+    mergeServiceFiles()
+    filesMatching("META-INF/services/**") {
+        duplicatesStrategy = DuplicatesStrategy.INCLUDE
+    }
+    exclude("META-INF/*.SF", "META-INF/*.DSA", "META-INF/*.RSA")
 }
 
 tasks.test {

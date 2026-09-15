@@ -11,8 +11,6 @@ import dev.onyxium.proxy.io.packet.Packet;
 import dev.onyxium.proxy.io.packet.connection.Ping;
 import dev.onyxium.proxy.io.packet.connection.Pong;
 
-/// Holds an authenticated connection until the backend connector installs its session handler.
-/// The bounded wait prevents clients hanging forever while forwarding is still being built.
 public final class AuthenticatedPacketHandler extends GenericPacketHandler {
 
 	private ScheduledFuture<?> keepAlive;
@@ -35,7 +33,7 @@ public final class AuthenticatedPacketHandler extends GenericPacketHandler {
 		}, 5, 5, TimeUnit.SECONDS);
 		backendTimeout = connection.eventLoop()
 			.schedule(() -> connection.disconnect(
-					FormattedMessage.builder().text("No backend server is connected yet.").color("#ffaa00").build(),
+					FormattedMessage.builder().text("Backend connection timed out.").color("#ffaa00").build(),
 					DisconnectErrorCode.TIMEOUT), 30, TimeUnit.SECONDS);
 	}
 

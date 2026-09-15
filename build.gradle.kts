@@ -32,6 +32,9 @@ allprojects {
 
     repositories {
         mavenCentral()
+        maven("https://repo.okaeri.cloud/releases") {
+            content { includeGroup("eu.okaeri") }
+        }
     }
 
     extensions.configure<SpotlessExtension> {

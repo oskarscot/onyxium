@@ -13,5 +13,6 @@ rootProject.name = "Onyxium"
 include(
     "onyxium-proxy",
     "onyxium-backend",
+    "onyxium-forwarding",
     "onyxium-api"
 )

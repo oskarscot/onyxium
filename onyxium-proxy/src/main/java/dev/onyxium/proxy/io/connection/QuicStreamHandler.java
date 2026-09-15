@@ -40,6 +40,13 @@ public final class QuicStreamHandler extends SimpleChannelInboundHandler<Packet>
 	}
 
 	@Override
+	public void channelWritabilityChanged(ChannelHandlerContext context) {
+		if (gameStream)
+			connection.writabilityChanged();
+		context.fireChannelWritabilityChanged();
+	}
+
+	@Override
 	public void channelInactive(@NotNull ChannelHandlerContext context) {
 		if (gameStream && connection.active()) {
 			connection.close();

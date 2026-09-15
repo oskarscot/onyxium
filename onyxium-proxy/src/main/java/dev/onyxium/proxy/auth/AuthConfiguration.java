@@ -1,9 +1,7 @@
 package dev.onyxium.proxy.auth;
 
 import java.net.URI;
-import java.util.Map;
 import java.util.Objects;
-import java.util.UUID;
 
 public record AuthConfiguration(URI sessionService, String audience, String sessionToken, String identityToken) {
 
@@ -18,16 +16,6 @@ public record AuthConfiguration(URI sessionService, String audience, String sess
 				&& ("127.0.0.1".equals(sessionService.getHost()) || "localhost".equals(sessionService.getHost())))) {
 			throw new IllegalArgumentException("Session service must use HTTPS");
 		}
-	}
-
-	public static AuthConfiguration fromEnvironment() {
-		return fromEnvironment(System.getenv());
-	}
-
-	static AuthConfiguration fromEnvironment(Map<String, String> environment) {
-		return new AuthConfiguration(SESSION_SERVICE,
-				environment.getOrDefault("HYTALE_SERVER_AUDIENCE", UUID.randomUUID().toString()),
-				environment.get("HYTALE_SERVER_SESSION_TOKEN"), environment.get("HYTALE_SERVER_IDENTITY_TOKEN"));
 	}
 
 	public boolean configured() {

@@ -5,13 +5,15 @@
 guava = "33.5.0-jre"
 junit = "4.13.2"
 netty = "4.2.17.Final"
-hytale-server = "0.6.0-pre.11"
+hytale-server = "0.7.0-pre.2"
 bouncycastle = "1.85"
 slf4j = "2.0.18"
 logback = "1.5.38"
 fastutil = "8.5.19"
 nimbus-jose-jwt = "10.9.1"
 spotless = "8.10.2"
+shadow = "9.6.1"
+okaeri-configs = "6.1.0-beta.4"
 
 [libraries]
 guava = { module = "com.google.guava:guava", version.ref = "guava" }
@@ -34,7 +36,10 @@ logback-classic = { module = "ch.qos.logback:logback-classic", version.ref = "lo
 # specializations are all this ends up needing.
 fastutil = { module = "it.unimi.dsi:fastutil", version.ref = "fastutil" }
 nimbus-jose-jwt = { module = "com.nimbusds:nimbus-jose-jwt", version.ref = "nimbus-jose-jwt" }
+okaeri-configs-yaml = { module = "eu.okaeri:okaeri-configs-yaml-snakeyaml", version.ref = "okaeri-configs" }
+okaeri-configs-validator = { module = "eu.okaeri:okaeri-configs-validator-okaeri", version.ref = "okaeri-configs" }
 
 [plugins]
 ginco-hygradle = { id = "gg.ginco.hygradle" }
 spotless = { id = "com.diffplug.spotless", version.ref = "spotless" }
+shadow = { id = "com.gradleup.shadow", version.ref = "shadow" }

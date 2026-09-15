@@ -9,6 +9,7 @@ import java.nio.charset.StandardCharsets;
 import java.text.ParseException;
 import java.time.Duration;
 import java.util.Map;
+import java.util.UUID;
 
 import com.nimbusds.jose.util.JSONObjectUtils;
 
@@ -46,6 +47,11 @@ public final class SessionServiceClient implements AutoCloseable {
 		return json(request("/game-session/refresh", sessionToken, ""));
 	}
 
+	public Map<String, Object> createSession(String accessToken, UUID profile) {
+		return json(request("/game-session/new", accessToken,
+				JSONObjectUtils.toJSONString(Map.of("uuid", profile.toString()))));
+	}
+
 	private String stringResponse(String path, String bearer, Map<String, Object> body, String field) {
 		var response = json(request(path, bearer, JSONObjectUtils.toJSONString(body)));
 		return requiredString(response, field);
@@ -78,7 +84,7 @@ public final class SessionServiceClient implements AutoCloseable {
 		try {
 			var response = client.send(builder.build(),
 					HttpResponse.BodyHandlers.limiting(HttpResponse.BodyHandlers.ofByteArray(), MAX_RESPONSE_BYTES));
-			if (response.statusCode() != 200) {
+			if (response.statusCode() != 200 && !(path.equals("/game-session/new") && response.statusCode() == 201)) {
 				throw new AuthenticationException(
 						"Session service rejected request (HTTP " + response.statusCode() + ")");
 			}
