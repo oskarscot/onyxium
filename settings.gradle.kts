@@ -16,3 +16,5 @@ include(
     "onyxium-forwarding",
     "onyxium-api"
 )
+
+include("onyxium-eventbus")
