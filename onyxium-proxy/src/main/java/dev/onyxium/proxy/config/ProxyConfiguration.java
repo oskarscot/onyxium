@@ -1,21 +1,14 @@
 package dev.onyxium.proxy.config;
 
 import java.net.InetSocketAddress;
-import java.nio.file.Files;
-import java.nio.file.Path;
-import java.security.SecureRandom;
-import java.util.Base64;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 
-import eu.okaeri.configs.ConfigManager;
 import eu.okaeri.configs.OkaeriConfig;
 import eu.okaeri.configs.annotation.Comment;
 import eu.okaeri.configs.annotation.CustomKey;
 import eu.okaeri.configs.annotation.Header;
-import eu.okaeri.configs.yaml.snakeyaml.YamlSnakeYamlConfigurer;
-import eu.okaeri.validator.OkaeriValidator;
 import eu.okaeri.validator.annotation.Max;
 import eu.okaeri.validator.annotation.Min;
 import eu.okaeri.validator.annotation.NotBlank;
@@ -45,44 +38,6 @@ public final class ProxyConfiguration extends OkaeriConfig {
 
 	@NotNull
 	public Forwarding forwarding = new Forwarding();
-
-	public static ProxyConfiguration loadConfiguration(Path path) {
-		var config = ConfigManager.create(ProxyConfiguration.class, it -> it.configure(options -> {
-			options.configurer(new YamlSnakeYamlConfigurer());
-			options.bindFile(path);
-			options.resolvePlaceholders();
-		}));
-		if (Files.notExists(path)) {
-			var secret = new byte[32];
-			new SecureRandom().nextBytes(secret);
-			config.forwarding.secret = Base64.getEncoder().encodeToString(secret);
-			config.saveDefaults();
-			config.forwarding.secret = "";
-		}
-		var validator = OkaeriValidator.of();
-		config.configure(options -> options.validator(entity -> validator.validate(entity).isEmpty()));
-		config.load();
-		config.validateBackends();
-		new ForwardingToken(config.forwarding.secret);
-		return config;
-	}
-
-	private void validateBackends() {
-		for (var entry : backends.entrySet()) {
-			if (entry.getKey() == null || !entry.getKey().matches("[a-zA-Z0-9_-]{1,64}") || entry.getValue() == null) {
-				throw new IllegalArgumentException(
-						"backends require non-null entries with names of 1-64 letters, digits, underscores or hyphens");
-			}
-			if (entry.getValue().address().isUnresolved())
-				throw new IllegalArgumentException("Could not resolve a backend host");
-		}
-		if (initialServers.stream().anyMatch(name -> name == null || !backends.containsKey(name))
-				|| initialServers.stream().distinct().count() != initialServers.size()) {
-			throw new IllegalArgumentException("initial-servers must contain distinct names defined in backends");
-		}
-		if (bindAddress().isUnresolved())
-			throw new IllegalArgumentException("Could not resolve listener.host");
-	}
 
 	public InetSocketAddress bindAddress() {
 		return new InetSocketAddress(listener.host, listener.port);

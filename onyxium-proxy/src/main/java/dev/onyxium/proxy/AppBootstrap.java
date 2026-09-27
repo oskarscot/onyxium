@@ -17,7 +17,7 @@ import org.slf4j.LoggerFactory;
 import dev.onyxium.proxy.auth.AuthConfiguration;
 import dev.onyxium.proxy.auth.AuthenticationException;
 import dev.onyxium.proxy.auth.HytaleDeviceLogin;
-import dev.onyxium.proxy.config.ProxyConfiguration;
+import dev.onyxium.proxy.config.ProxyConfigurationFactory;
 import dev.onyxium.proxy.io.NettyNetworkManager;
 import dev.onyxium.proxy.lifecycle.LifecycleException;
 
@@ -35,7 +35,7 @@ public final class AppBootstrap {
 		}
 		try {
 			var path = configPath(args).toAbsolutePath().normalize();
-			var configuration = ProxyConfiguration.loadConfiguration(path);
+			var configuration = ProxyConfigurationFactory.load(path);
 			LOGGER.info("Loaded configuration from {}", path);
 			AuthConfiguration credentials;
 			try (var login = new HytaleDeviceLogin()) {

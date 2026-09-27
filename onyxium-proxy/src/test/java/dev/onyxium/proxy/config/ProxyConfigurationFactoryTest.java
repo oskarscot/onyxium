@@ -15,7 +15,7 @@ import org.junit.Rule;
 import org.junit.Test;
 import org.junit.rules.TemporaryFolder;
 
-public class ProxyConfigurationTest {
+public class ProxyConfigurationFactoryTest {
 
 	private static final String SECRET = Base64.getEncoder().encodeToString(new byte[32]);
 
@@ -25,7 +25,7 @@ public class ProxyConfigurationTest {
 	@Test
 	public void createsCommentedDefaultsOnceWithoutAuthenticationSettings() throws Exception {
 		var path = path();
-		var config = ProxyConfiguration.loadConfiguration(path);
+		var config = ProxyConfigurationFactory.load(path);
 		var content = Files.readString(path);
 		assertEquals(5520, config.bindAddress().getPort());
 		assertEquals(5521, config.backends.get("lobby").address().getPort());
@@ -34,10 +34,10 @@ public class ProxyConfigurationTest {
 		assertFalse(content.contains("session-token:"));
 		assertFalse(content.contains("identity-token:"));
 		assertFalse(content.contains("audience:"));
-		ProxyConfiguration.loadConfiguration(path);
+		ProxyConfigurationFactory.load(path);
 		assertEquals(content, Files.readString(path));
 		Files.writeString(path, "listener:\n  port: 5520\n");
-		assertThrows(IllegalArgumentException.class, () -> ProxyConfiguration.loadConfiguration(path));
+		assertThrows(IllegalArgumentException.class, () -> ProxyConfigurationFactory.load(path));
 		assertEquals("listener:\n  port: 5520\n", Files.readString(path));
 	}
 
@@ -63,7 +63,7 @@ public class ProxyConfigurationTest {
 		System.setProperty("onyxium.test.secret", SECRET);
 		System.setProperty("onyxium.test.password", "private-password");
 		try {
-			var config = ProxyConfiguration.loadConfiguration(path);
+			var config = ProxyConfigurationFactory.load(path);
 			assertEquals(5522, config.bindAddress().getPort());
 			assertEquals(2, config.backends.size());
 			assertEquals(5523, config.backends.get("survival").address().getPort());
@@ -72,7 +72,7 @@ public class ProxyConfigurationTest {
 			assertFalse(config.toString().contains("private-password"));
 			assertEquals(content, Files.readString(path));
 			System.setProperty("onyxium.test.port", "65536");
-			var exception = assertThrows(OkaeriException.class, () -> ProxyConfiguration.loadConfiguration(path));
+			var exception = assertThrows(OkaeriException.class, () -> ProxyConfigurationFactory.load(path));
 		}
 		finally {
 			System.clearProperty("onyxium.test.secret");
@@ -85,9 +85,9 @@ public class ProxyConfigurationTest {
 	public void resolvesRealEnvironmentValuesAndEscapedPlaceholders() throws Exception {
 		var path = path();
 		Files.writeString(path, "listener:\n  password: '${PATH}'\nforwarding:\n  secret: '" + SECRET + "'\n");
-		assertEquals(System.getenv("PATH"), ProxyConfiguration.loadConfiguration(path).password());
+		assertEquals(System.getenv("PATH"), ProxyConfigurationFactory.load(path).password());
 		Files.writeString(path, "listener:\n  password: '$${LITERAL}'\nforwarding:\n  secret: '" + SECRET + "'\n");
-		assertEquals("${LITERAL}", ProxyConfiguration.loadConfiguration(path).password());
+		assertEquals("${LITERAL}", ProxyConfigurationFactory.load(path).password());
 	}
 
 	@Test
@@ -101,8 +101,7 @@ public class ProxyConfigurationTest {
 			var path = path();
 			var content = settings + "\nforwarding:\n  secret: '" + SECRET + "'\n";
 			Files.writeString(path, content);
-			var exception = assertThrows(settings, RuntimeException.class,
-					() -> ProxyConfiguration.loadConfiguration(path));
+			var exception = assertThrows(settings, RuntimeException.class, () -> ProxyConfigurationFactory.load(path));
 			assertTrue(settings, exception instanceof OkaeriException || exception instanceof IllegalArgumentException);
 			assertEquals(content, Files.readString(path));
 		}
@@ -114,7 +113,7 @@ public class ProxyConfigurationTest {
 				"[not, a, mapping]", "forwarding: {secret: secret-value}")) {
 			var path = path();
 			Files.writeString(path, content);
-			var exception = assertThrows(RuntimeException.class, () -> ProxyConfiguration.loadConfiguration(path));
+			var exception = assertThrows(RuntimeException.class, () -> ProxyConfigurationFactory.load(path));
 			assertTrue(exception instanceof OkaeriException || exception instanceof IllegalArgumentException);
 			assertEquals(content, Files.readString(path));
 		}
