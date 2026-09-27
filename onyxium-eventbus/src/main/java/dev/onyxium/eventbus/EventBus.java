@@ -1,7 +1,7 @@
 package dev.onyxium.eventbus;
 
 import java.lang.invoke.MethodHandles;
-import java.util.LinkedHashMap;
+import java.util.HashMap;
 import java.util.Map;
 
 /// Dispatches events synchronously to subscribers for their exact runtime class.
@@ -9,8 +9,7 @@ import java.util.Map;
 /// registration or posting.
 public final class EventBus {
 
-	private final Map<Class<? extends Event>, EventHandler<? extends Event>> eventMap =
-		new LinkedHashMap<>();
+	private final Map<Class<? extends Event>, EventHandler<? extends Event>> eventMap = new HashMap<>();
 
 	/// Registers accessible [Subscribe] instance methods declared by the handler's
 	/// class. Each method must accept exactly one [Event] parameter; inherited
@@ -48,7 +47,7 @@ public final class EventBus {
 
 			var eventHandler = eventMap.computeIfAbsent(
 				eventClass,
-				ignored -> new EventHandler<>()
+				_ -> new EventHandler<>()
 			);
 
 			var lookup = MethodHandles.lookup();
@@ -67,12 +66,20 @@ public final class EventBus {
 		}
 	}
 
+	/// Returns the [EventHandler] of type [T] for the specified eventClass.
+	///
+	/// @param eventClass the event class being handled by the EventHandler
+	@SuppressWarnings("unchecked")
+	public <T extends Event> EventHandler<T> getHandler(Class<T> eventClass) {
+		return (EventHandler<T>) this.eventMap.get(eventClass);
+	}
+
 	/// Delivers the event on the calling thread. Does nothing if its exact class has
 	/// no subscribers. A subscriber failure stops delivery to remaining subscribers.
 	///
 	/// @param event the event to deliver
 	/// @throws RuntimeException if a subscriber throws, wrapping the cause
-	public <T extends Event> void post(T event) {
+	public <T extends Event> void postEvent(T event) {
 		var handler = eventMap.get(event.getClass());
 
 		if (handler == null) {

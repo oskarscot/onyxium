@@ -6,7 +6,7 @@ import java.util.Comparator;
 /// Stores and invokes subscribers for one event type in descending priority order.
 ///
 /// @param <T> the event type
-public class EventHandler<T extends Event> {
+public final class EventHandler<T extends Event> {
 
 	private volatile EventRegistration[] registrations = new EventRegistration[0];
 
