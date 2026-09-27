@@ -1,9 +1,12 @@
 package dev.onyxium.eventbus;
 
-import java.lang.reflect.Method;
+import java.lang.invoke.MethodHandle;
 
+/// A subscriber's invocation handle and priority.
+///
+/// @param handle the subscriber handle, accepting a single event argument
+/// @param priority the dispatch priority, higher values run first
 public record EventRegistration(
-	Object instance,
-	Method targetMethod,
-	int priotity
+	MethodHandle handle,
+	int priority
 ) {  }
