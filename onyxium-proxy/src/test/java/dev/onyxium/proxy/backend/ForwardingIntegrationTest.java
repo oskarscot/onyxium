@@ -45,6 +45,7 @@ import org.junit.After;
 import org.junit.Test;
 
 import dev.onyxium.forwarding.ForwardingToken;
+import dev.onyxium.proxy.OnyxiumProxy;
 import dev.onyxium.proxy.auth.AuthenticatedProfile;
 import dev.onyxium.proxy.auth.AuthenticationService;
 import dev.onyxium.proxy.io.NettyNetworkManager;
@@ -304,7 +305,7 @@ public class ForwardingIntegrationTest {
 				return CompletableFuture.completedFuture("proxy-authenticated");
 			}
 		}, null, connector::connect);
-		proxy.start();
+		new OnyxiumProxy(proxy).start();
 		var clientCertificate = SelfSignedCertificate.generate("Client Test");
 		var clientSsl = QuicSslContextBuilder.forClient()
 			.applicationProtocols("hytale/3")

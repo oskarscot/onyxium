@@ -9,6 +9,7 @@ import java.util.UUID;
 import org.jetbrains.annotations.ApiStatus;
 import org.jetbrains.annotations.NotNull;
 
+import dev.onyxium.eventbus.EventBus;
 import dev.onyxium.proxy.api.ProxyServer;
 import dev.onyxium.proxy.api.network.NetworkManager;
 import dev.onyxium.proxy.api.player.Player;
@@ -21,6 +22,8 @@ public final class OnyxiumProxy implements ProxyServer, Lifecycle {
 
 	private final NettyNetworkManager networkManager;
 
+	private final EventBus eventBus = new EventBus();
+
 	public OnyxiumProxy(@NotNull NettyNetworkManager networkManager) {
 		this.networkManager = Objects.requireNonNull(networkManager, "networkManager");
 	}
@@ -29,6 +32,11 @@ public final class OnyxiumProxy implements ProxyServer, Lifecycle {
 	@NotNull
 	public NetworkManager networkManager() {
 		return this.networkManager;
+	}
+
+	@Override
+	public EventBus eventBus() {
+		return this.eventBus;
 	}
 
 	@Override
@@ -43,7 +51,7 @@ public final class OnyxiumProxy implements ProxyServer, Lifecycle {
 
 	@Override
 	public void start() throws LifecycleException {
-		this.networkManager.start();
+		this.networkManager.start(this);
 	}
 
 	@Override

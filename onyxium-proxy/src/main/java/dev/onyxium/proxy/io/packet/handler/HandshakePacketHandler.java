@@ -1,5 +1,12 @@
 package dev.onyxium.proxy.io.packet.handler;
 
+import java.text.ParseException;
+import java.util.Map;
+import java.util.UUID;
+
+import com.nimbusds.jwt.SignedJWT;
+
+import dev.onyxium.proxy.api.event.PreLoginEvent;
 import dev.onyxium.proxy.api.message.FormattedMessage;
 import dev.onyxium.proxy.io.connection.DisconnectErrorCode;
 import dev.onyxium.proxy.io.connection.ProtocolConnection;
@@ -47,7 +54,35 @@ public final class HandshakePacketHandler extends GenericPacketHandler {
 					DisconnectErrorCode.AUTH_FAILED);
 			return;
 		}
+		var event = preLoginEvent(connect);
+		login.proxy().eventBus().postEvent(event);
+		if (event.isCancelled()) {
+			connection.disconnect(event.getCancelledMessage(), DisconnectErrorCode.AUTH_FAILED);
+			return;
+		}
+		if (!connection.active()) {
+			return;
+		}
 		connection.setPacketHandler(new AuthenticationPacketHandler(connection, login, connect));
+	}
+
+	private PreLoginEvent preLoginEvent(Connect connect) {
+		UUID uuid = null;
+		String username = null;
+		try {
+			var claims = SignedJWT.parse(connect.identityToken()).getJWTClaimsSet();
+			if (claims.getClaim("profile") instanceof Map<?, ?> profile
+					&& profile.get("username") instanceof String value) {
+				username = value;
+			}
+			if (claims.getSubject() != null) {
+				uuid = UUID.fromString(claims.getSubject());
+			}
+		}
+		catch (ParseException | IllegalArgumentException ignored) {
+			// Unreadable claims remain absent; authentication still validates the token.
+		}
+		return new PreLoginEvent(connection.remoteAddress(), uuid, username);
 	}
 
 }

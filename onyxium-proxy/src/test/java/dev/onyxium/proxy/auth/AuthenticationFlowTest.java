@@ -39,6 +39,10 @@ import org.junit.After;
 import org.junit.Before;
 import org.junit.Test;
 
+import dev.onyxium.eventbus.Subscribe;
+import dev.onyxium.proxy.OnyxiumProxy;
+import dev.onyxium.proxy.api.event.PostLoginEvent;
+import dev.onyxium.proxy.api.event.PreLoginEvent;
 import dev.onyxium.proxy.io.NettyNetworkManager;
 import dev.onyxium.proxy.io.packet.ClientType;
 import dev.onyxium.proxy.io.packet.Packet;
@@ -76,6 +80,10 @@ public class AuthenticationFlowTest {
 	private final LinkedBlockingQueue<Packet> received = new LinkedBlockingQueue<>();
 
 	private final CompletableFuture<ProxyPlayer> joined = new CompletableFuture<>();
+
+	private final CompletableFuture<PreLoginEvent> preLoginEvent = new CompletableFuture<>();
+
+	private final CompletableFuture<PostLoginEvent> postLoginEvent = new CompletableFuture<>();
 
 	private final AtomicReference<String> exchangedFingerprint = new AtomicReference<>();
 
@@ -127,7 +135,9 @@ public class AuthenticationFlowTest {
 		var authentication = new HytaleAuthenticationService(
 				new AuthConfiguration(URI.create(issuer), "test-proxy", "test-session", tokens.serverIdentity(issuer)));
 		proxy = new NettyNetworkManager(new InetSocketAddress("127.0.0.1", 0), authentication, null, joined::complete);
-		proxy.start();
+		var server = new OnyxiumProxy(proxy);
+		server.eventBus().registerHandler(this);
+		server.start();
 		clientGroup = new MultiThreadIoEventLoopGroup(1, NioIoHandler.newFactory());
 		var certificate = SelfSignedCertificate.generate("Onyxium login test");
 		fingerprint = Base64.getUrlEncoder()
@@ -196,6 +206,11 @@ public class AuthenticationFlowTest {
 		assertTrue(String.valueOf(response), response instanceof ServerAuthToken);
 		assertEquals("server-access-token", ((ServerAuthToken) response).serverAccessToken());
 		var player = joined.get(10, TimeUnit.SECONDS);
+		var preLogin = preLoginEvent.get(10, TimeUnit.SECONDS);
+		assertEquals(player.remoteAddress(), preLogin.remoteAddress());
+		assertEquals(player.uuid(), preLogin.uuid());
+		assertEquals(player.username(), preLogin.username());
+		assertEquals(player, postLoginEvent.get(10, TimeUnit.SECONDS).player());
 		assertEquals(TestTokens.PLAYER_ID, player.uuid());
 		assertEquals("Oskar", player.username());
 		assertTrue(proxy.players().player(player.uuid()).isPresent());
@@ -224,6 +239,21 @@ public class AuthenticationFlowTest {
 		assertTrue(proxy.players().players().isEmpty());
 		assertNull(exchangedFingerprint.get());
 		assertFalse(joined.isDone());
+		assertFalse(postLoginEvent.isDone());
+	}
+
+	@Subscribe
+	public void onPreLogin(PreLoginEvent event) {
+		preLoginEvent.complete(event);
+	}
+
+	@Subscribe
+	public void onPostLogin(PostLoginEvent event) {
+		if (!preLoginEvent.isDone() || proxy.players().player(event.player().uuid()).isPresent() || joined.isDone()) {
+			postLoginEvent.completeExceptionally(new AssertionError("Post-login event fired out of order"));
+			return;
+		}
+		postLoginEvent.complete(event);
 	}
 
 	private void begin() throws Exception {

@@ -27,6 +27,7 @@ import org.jetbrains.annotations.NotNull;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
+import dev.onyxium.proxy.api.ProxyServer;
 import dev.onyxium.proxy.api.network.NetworkInfo;
 import dev.onyxium.proxy.api.network.NetworkManager;
 import dev.onyxium.proxy.auth.AuthConfiguration;
@@ -39,14 +40,13 @@ import dev.onyxium.proxy.io.connection.QuicConnectionInitializer;
 import dev.onyxium.proxy.io.connection.QuicStreamInitializer;
 import dev.onyxium.proxy.io.packet.ProtocolVersion;
 import dev.onyxium.proxy.io.packet.handler.LoginContext;
-import dev.onyxium.proxy.lifecycle.Lifecycle;
 import dev.onyxium.proxy.lifecycle.LifecycleException;
 import dev.onyxium.proxy.player.PlayerRegistry;
 import dev.onyxium.proxy.player.ProxyPlayer;
 import dev.onyxium.proxy.util.SelfSignedCertificate;
 
 @ApiStatus.Internal
-public final class NettyNetworkManager implements NetworkManager, Lifecycle {
+public final class NettyNetworkManager implements NetworkManager {
 
 	private static final Logger LOGGER = LoggerFactory.getLogger(NettyNetworkManager.class);
 
@@ -113,8 +113,8 @@ public final class NettyNetworkManager implements NetworkManager, Lifecycle {
 		return this.running;
 	}
 
-	@Override
-	public void start() throws LifecycleException {
+	public void start(ProxyServer proxy) throws LifecycleException {
+		Objects.requireNonNull(proxy, "proxy");
 		if (this.running) {
 			throw new LifecycleException("Listener is already running on " + this.networkInfo.bindAddress());
 		}
@@ -132,7 +132,7 @@ public final class NettyNetworkManager implements NetworkManager, Lifecycle {
 			this.channel = new Bootstrap().group(this.eventLoopGroup)
 				.channel(NioDatagramChannel.class)
 				.option(ChannelOption.SO_REUSEADDR, true)
-				.handler(createCodec())
+				.handler(createCodec(proxy))
 				.bind(this.networkInfo.bindAddress())
 				.sync()
 				.channel();
@@ -154,7 +154,6 @@ public final class NettyNetworkManager implements NetworkManager, Lifecycle {
 		}
 	}
 
-	@Override
 	public void stop() {
 		if (!this.running) {
 			return;
@@ -178,7 +177,7 @@ public final class NettyNetworkManager implements NetworkManager, Lifecycle {
 		}
 	}
 
-	private ChannelHandler createCodec() throws GeneralSecurityException {
+	private ChannelHandler createCodec(ProxyServer proxy) throws GeneralSecurityException {
 		return new QuicServerCodecBuilder().sslContext(createSslContext())
 			.tokenHandler(InsecureQuicTokenHandler.INSTANCE)
 			.congestionControlAlgorithm(QuicCongestionControlAlgorithm.BBR)
@@ -191,8 +190,9 @@ public final class NettyNetworkManager implements NetworkManager, Lifecycle {
 			.initialMaxStreamDataUnidirectional(QuicTransportParameters.STREAM_BUFFER_SIZE)
 			.initialMaxStreamsBidirectional(QuicTransportParameters.MAX_CONCURRENT_BIDIRECTIONAL_STREAMS)
 			.initialMaxStreamsUnidirectional(QuicTransportParameters.MAX_CONCURRENT_UNIDIRECTIONAL_STREAMS)
-			.handler(new QuicConnectionInitializer(new LoginContext(authentication, players, ProtocolVersion.CURRENT,
-					password, onAuthenticated == null ? backendConnector::connect : onAuthenticated)))
+			.handler(new QuicConnectionInitializer(
+					new LoginContext(proxy, authentication, players, ProtocolVersion.CURRENT, password,
+							onAuthenticated == null ? backendConnector::connect : onAuthenticated)))
 			.streamHandler(new QuicStreamInitializer())
 			.build();
 	}

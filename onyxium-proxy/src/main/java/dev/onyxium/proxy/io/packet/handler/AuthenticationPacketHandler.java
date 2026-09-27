@@ -11,6 +11,7 @@ import java.util.function.Consumer;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
+import dev.onyxium.proxy.api.event.PostLoginEvent;
 import dev.onyxium.proxy.api.message.FormattedMessage;
 import dev.onyxium.proxy.auth.AuthenticatedProfile;
 import dev.onyxium.proxy.io.connection.DisconnectErrorCode;
@@ -133,6 +134,17 @@ public final class AuthenticationPacketHandler extends GenericPacketHandler {
 			return;
 		}
 		var player = new ProxyPlayer(connection, identity, connect);
+
+		var loginEvent = new PostLoginEvent(player);
+		login.proxy().eventBus().postEvent(loginEvent);
+		if (loginEvent.isCancelled()) {
+			connection.disconnect(loginEvent.getCancelledMessage(), DisconnectErrorCode.AUTH_FAILED);
+			return;
+		}
+		if (!connection.active()) {
+			return;
+		}
+
 		if (!login.players().register(player)) {
 			connection.disconnect(FormattedMessage.text("You are already connected to this proxy."),
 					DisconnectErrorCode.AUTH_FAILED);

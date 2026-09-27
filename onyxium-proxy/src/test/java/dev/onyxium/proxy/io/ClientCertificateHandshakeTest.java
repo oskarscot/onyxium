@@ -24,6 +24,7 @@ import org.junit.After;
 import org.junit.Before;
 import org.junit.Test;
 
+import dev.onyxium.proxy.OnyxiumProxy;
 import dev.onyxium.proxy.auth.AuthConfiguration;
 import dev.onyxium.proxy.auth.HytaleAuthenticationService;
 import dev.onyxium.proxy.util.SelfSignedCertificate;
@@ -47,7 +48,7 @@ public class ClientCertificateHandshakeTest {
 		this.networkManager = new NettyNetworkManager(BIND_ADDRESS, new HytaleAuthenticationService(
 				new AuthConfiguration(AuthConfiguration.SESSION_SERVICE, "test", null, null)), null, player -> {
 				});
-		this.networkManager.start();
+		new OnyxiumProxy(this.networkManager).start();
 
 		this.clientGroup = new MultiThreadIoEventLoopGroup(1, NioIoHandler.newFactory());
 	}

@@ -2,6 +2,16 @@ plugins {
     alias(libs.plugins.shadow)
 }
 
+abstract class MockitoAgentProvider : CommandLineArgumentProvider {
+    @get:InputFiles
+    @get:PathSensitive(PathSensitivity.RELATIVE)
+    abstract val agentJar: ConfigurableFileCollection
+
+    override fun asArguments(): Iterable<String> = listOf("-javaagent:${agentJar.singleFile.absolutePath}")
+}
+
+val mockitoAgent = configurations.create("mockitoAgent")
+
 val quicNativePlatforms = listOf(
     "linux-x86_64",
     "linux-aarch_64",
@@ -32,6 +42,8 @@ dependencies {
     runtimeOnly(libs.logback.classic)
 
     testImplementation(libs.junit)
+    testImplementation(libs.mockito)
+    mockitoAgent(libs.mockito) { isTransitive = false }
 }
 
 val nativeAccess = listOf("--enable-native-access=ALL-UNNAMED")
@@ -55,4 +67,7 @@ tasks.shadowJar {
 
 tasks.test {
     jvmArgs(nativeAccess)
+    jvmArgumentProviders.add(objects.newInstance<MockitoAgentProvider>().apply {
+        agentJar.from(mockitoAgent)
+    })
 }
