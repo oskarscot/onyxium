@@ -22,6 +22,9 @@ public class CommandDispatchTest {
 	@Parameterized.Parameters(name = "{0}")
 	public static List<Scenario> cases() {
 		return List.of(
+				Scenario.command("ops", "root"),
+				Scenario.command("/O missing", """
+						Too many arguments. Usage: /ops | /ops console | /ops count <amount> [enabled] | /ops echo <text> | /ops fail | /ops raw [text...]"""),
 				Scenario.command("/O C 2 true", "2:true"),
 				Scenario.command("ops count 2", "2:none"),
 				Scenario.command("ops echo \"hello world\"", "hello world"),
@@ -32,10 +35,13 @@ public class CommandDispatchTest {
 				Scenario.command("ops count bad", "Invalid value for 'amount'. Usage: /ops count <amount> [enabled]"),
 				Scenario.command("ops count 2 true extra", "Too many arguments. Usage: /ops count <amount> [enabled]"),
 				Scenario.command("ops echo \"unfinished", "Unclosed quote. Usage: /ops echo <text>"),
-				Scenario.command("group missing", "Unknown or incomplete command."),
+				Scenario.command("group missing", "Unknown or incomplete command. Usage: /group nested child"),
+				Scenario.command("group nested", "Unknown or incomplete command. Usage: /group nested child"),
 				Scenario.command("ops console", "console"),
 				Scenario.command("ops fail", "Command failed."),
 				new Scenario("/backend \"unfinished", new ConsoleSource(Set.of()), false, List.of()),
+				new Scenario("ops missing", new PlayerSource(Set.of()), true, List.of("""
+						Too many arguments. Usage: /ops | /ops echo <text> | /ops fail | /ops raw [text...]""")),
 				new Scenario("ops count 2", new PlayerSource(Set.of()), true,
 						List.of("You do not have permission to use this command.")),
 				new Scenario("ops console \"unfinished", new PlayerSource(Set.of("test.use")), true,
@@ -100,7 +106,7 @@ public class CommandDispatchTest {
 			throw new IllegalArgumentException("Handler failure, not an argument error");
 		}
 
-		@Command(name = "group child")
+		@Command(name = "group nested child")
 		public void child(CommandSource source) {
 			source.sendMessage("child");
 		}

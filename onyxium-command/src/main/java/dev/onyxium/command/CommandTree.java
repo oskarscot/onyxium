@@ -25,6 +25,12 @@ record CommandTree(Map<String, Node> roots, List<RegisteredCommand> commands) {
 	}
 
 	record Node(Map<String, Node> children, RegisteredCommand command) {
+
+		Stream<CommandDefinition> definitions() {
+			return Stream.concat(Stream.ofNullable(command).map(RegisteredCommand::definition),
+					children.values().stream().distinct().flatMap(Node::definitions));
+		}
+
 	}
 
 	static final class MutableNode {

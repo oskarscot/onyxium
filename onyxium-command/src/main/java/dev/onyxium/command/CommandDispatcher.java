@@ -66,7 +66,7 @@ public final class CommandDispatcher {
 				node = child;
 			}
 
-			execute(source, input, node.command());
+			execute(source, input, node);
 		}
 		catch (RuntimeException failure) {
 			LOGGER.log(System.Logger.Level.ERROR, "Command /" + root + " failed", failure);
@@ -76,9 +76,10 @@ public final class CommandDispatcher {
 		return true;
 	}
 
-	void execute(CommandSource source, CommandInput input, RegisteredCommand command) {
+	void execute(CommandSource source, CommandInput input, CommandTree.Node node) {
+		var command = node.command();
 		if (command == null) {
-			source.sendMessage("Unknown or incomplete command.");
+			sendUsage(source, node, "Unknown or incomplete command.");
 			return;
 		}
 
@@ -98,11 +99,22 @@ public final class CommandDispatcher {
 			arguments = arguments(source, input, definition);
 		}
 		catch (IllegalArgumentException failure) {
-			source.sendMessage(failure.getMessage() + " Usage: " + definition.usage());
+			sendUsage(source, node, failure.getMessage());
 			return;
 		}
 
 		command.invoke(arguments);
+	}
+
+	void sendUsage(CommandSource source, CommandTree.Node node, String message) {
+		var usage = node.definitions()
+			.filter(command -> command.sourceType().isInstance(source))
+			.filter(command -> permitted(command, source))
+			.map(CommandDefinition::usage)
+			.sorted()
+			.collect(Collectors.joining(" | "));
+
+		source.sendMessage(usage.isEmpty() ? message : message + " Usage: " + usage);
 	}
 
 	Object[] arguments(CommandSource source, CommandInput input, CommandDefinition command) {
