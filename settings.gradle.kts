@@ -14,7 +14,8 @@ include(
     "onyxium-proxy",
     "onyxium-backend",
     "onyxium-forwarding",
-    "onyxium-api"
+    "onyxium-api",
+    "onyxium-command"
 )
 
 include("onyxium-eventbus")
