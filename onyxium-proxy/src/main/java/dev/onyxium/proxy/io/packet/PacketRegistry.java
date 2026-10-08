@@ -13,6 +13,8 @@ import dev.onyxium.proxy.io.packet.auth.PasswordAccepted;
 import dev.onyxium.proxy.io.packet.auth.PasswordRejected;
 import dev.onyxium.proxy.io.packet.auth.PasswordResponse;
 import dev.onyxium.proxy.io.packet.auth.ServerAuthToken;
+import dev.onyxium.proxy.io.packet.chat.ChatMessage;
+import dev.onyxium.proxy.io.packet.chat.ServerMessage;
 import dev.onyxium.proxy.io.packet.connection.ClientDisconnect;
 import dev.onyxium.proxy.io.packet.connection.Ping;
 import dev.onyxium.proxy.io.packet.connection.Pong;
@@ -34,6 +36,8 @@ public final class PacketRegistry {
 		register(15, 1, 70, PasswordResponse::deserialize);
 		register(16, 0, 0, ignored -> new PasswordAccepted());
 		register(17, 5, 74, PasswordRejected::deserialize);
+		register(210, 2, PacketDecoder.FORWARDING_MAX_FRAME_SIZE, ServerMessage::deserialize);
+		register(211, 1, 1026, ChatMessage::deserialize);
 	}
 
 	private PacketRegistry() {

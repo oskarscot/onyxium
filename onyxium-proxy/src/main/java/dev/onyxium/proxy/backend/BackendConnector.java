@@ -44,7 +44,7 @@ import dev.onyxium.proxy.io.packet.auth.AuthGrant;
 import dev.onyxium.proxy.io.packet.auth.Connect;
 import dev.onyxium.proxy.io.packet.connection.ServerDisconnect;
 import dev.onyxium.proxy.io.packet.handler.AuthenticatedPacketHandler;
-import dev.onyxium.proxy.io.packet.handler.GenericPacketHandler;
+import dev.onyxium.proxy.io.packet.handler.ForwardingPacketHandler;
 import dev.onyxium.proxy.player.ProxyPlayer;
 import dev.onyxium.proxy.util.SelfSignedCertificate;
 
@@ -339,16 +339,7 @@ public final class BackendConnector {
 					ready = true;
 					context.pipeline().get(PacketDecoder.class).authenticated();
 					timeout.cancel(false);
-					client.setPacketHandler(new GenericPacketHandler(client) {
-						@Override
-						protected void handle(Packet forwarded) {
-							game.writeAndFlush(forwarded).addListener(result -> {
-								if (!result.isSuccess())
-									fail("Backend write failed.");
-							});
-							client.readEnabled(game.isWritable());
-						}
-					});
+					client.setPacketHandler(new ForwardingPacketHandler(client, game, Session.this::fail));
 					client.onWritabilityChanged(() -> game.config().setAutoRead(client.gameStreamWritable()));
 					pendingServerStreams.forEach(stream -> bridge(stream, client.channel()));
 					pendingClientStreams.forEach(stream -> bridge(stream, backend));

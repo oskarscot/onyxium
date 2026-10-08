@@ -1,7 +1,10 @@
 package dev.onyxium.proxy.player;
 
 import java.net.SocketAddress;
+import java.util.Objects;
 import java.util.UUID;
+
+import org.jetbrains.annotations.NotNull;
 
 import dev.onyxium.proxy.api.message.FormattedMessage;
 import dev.onyxium.proxy.api.player.Player;
@@ -12,6 +15,7 @@ import dev.onyxium.proxy.io.packet.ClientType;
 import dev.onyxium.proxy.io.packet.HostAddress;
 import dev.onyxium.proxy.io.packet.ProtocolVersion;
 import dev.onyxium.proxy.io.packet.auth.Connect;
+import dev.onyxium.proxy.io.packet.chat.ServerMessage;
 
 /// Created only after mutual authentication and the optional password challenge succeed.
 public final class ProxyPlayer implements Player {
@@ -44,17 +48,17 @@ public final class ProxyPlayer implements Player {
 	}
 
 	@Override
-	public UUID uuid() {
+	public @NotNull UUID uuid() {
 		return profile.uniqueId();
 	}
 
 	@Override
-	public String username() {
+	public @NotNull String username() {
 		return profile.username();
 	}
 
 	@Override
-	public SocketAddress remoteAddress() {
+	public @NotNull SocketAddress remoteAddress() {
 		return connection.remoteAddress();
 	}
 
@@ -64,8 +68,15 @@ public final class ProxyPlayer implements Player {
 	}
 
 	@Override
-	public void disconnect(FormattedMessage reason) {
+	public void disconnect(@NotNull FormattedMessage reason) {
+		Objects.requireNonNull(reason, "Reason cannot be null");
 		connection.eventLoop().execute(() -> connection.disconnect(reason, DisconnectErrorCode.NO_ERROR));
+	}
+
+	@Override
+	public void sendMessage(@NotNull FormattedMessage message) {
+		Objects.requireNonNull(message, "Message cannot be null");
+		connection.eventLoop().execute(() -> connection.write(new ServerMessage(message)));
 	}
 
 	public ProtocolConnection connection() {
