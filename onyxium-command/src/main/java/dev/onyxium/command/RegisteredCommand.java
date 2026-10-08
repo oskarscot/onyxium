@@ -11,15 +11,14 @@ import java.lang.reflect.Type;
 import java.util.List;
 import java.util.Locale;
 import java.util.Optional;
-import java.util.function.Function;
 import java.util.stream.Collectors;
 import java.util.stream.IntStream;
 import java.util.stream.Stream;
 
-record RegisteredCommand<S>(CommandDefinition definition, List<Binding<S>> arguments, MethodHandle invocation) {
+record RegisteredCommand<S>(CommandDefinition definition, List<Binding> arguments, MethodHandle invocation) {
 
 	static <S> RegisteredCommand<S> compile(Object handler, Method method, Class<S> sourceType,
-			Function<Class<?>, ArgumentParser<S, ?>> parsers) {
+			ArgumentParser parsers) {
 		if (!Modifier.isPublic(method.getModifiers()) || Modifier.isStatic(method.getModifiers()) || method.isVarArgs()
 				|| method.getReturnType() != void.class) {
 			throw invalid(method, "Handlers must be public instance methods returning void, without varargs.");
@@ -56,8 +55,7 @@ record RegisteredCommand<S>(CommandDefinition definition, List<Binding<S>> argum
 		}
 	}
 
-	static <S> Binding<S> binding(Method method, Parameter parameter,
-			Function<Class<?>, ArgumentParser<S, ?>> parsers) {
+	static Binding binding(Method method, Parameter parameter, ArgumentParser parsers) {
 		if (!parameter.isNamePresent())
 			throw invalid(method, "Compile handlers with -parameters to retain argument names.");
 		var optional = parameter.getType() == Optional.class;
@@ -65,10 +63,9 @@ record RegisteredCommand<S>(CommandDefinition definition, List<Binding<S>> argum
 		var greedy = parameter.isAnnotationPresent(Greedy.class);
 		if (greedy && type != String.class)
 			throw invalid(method, "Only String or Optional<String> arguments can be greedy.");
-		var parser = parsers.apply(type);
-		if (parser == null)
+		if (!parsers.supports(type))
 			throw invalid(method, "No argument parser registered for " + type.getTypeName() + ".");
-		return new Binding<>(new ArgumentDefinition(parameter.getName(), type, optional, greedy), parser);
+		return new Binding(new ArgumentDefinition(parameter.getName(), type, optional, greedy), parsers);
 	}
 
 	static Class<?> argumentType(Method method, Type type, boolean optional) {
@@ -77,11 +74,11 @@ record RegisteredCommand<S>(CommandDefinition definition, List<Binding<S>> argum
 		else if (optional)
 			throw invalid(method, "Optional arguments must declare a concrete value type.");
 		if (type instanceof Class<?> concrete)
-			return BuiltinParsers.boxed(concrete);
+			return ArgumentParser.boxed(concrete);
 		throw invalid(method, "Argument types must be concrete classes, optionally wrapped in Optional.");
 	}
 
-	static void validateOrder(Method method, List<? extends Binding<?>> bindings) {
+	static void validateOrder(Method method, List<Binding> bindings) {
 		var optionalSeen = false;
 		for (var index = 0; index < bindings.size(); index++) {
 			var argument = bindings.get(index).definition();
@@ -112,6 +109,6 @@ record RegisteredCommand<S>(CommandDefinition definition, List<Binding<S>> argum
 		return new IllegalArgumentException(method.getName() + ": " + reason);
 	}
 
-	record Binding<S>(ArgumentDefinition definition, ArgumentParser<S, ?> parser) {
+	record Binding(ArgumentDefinition definition, ArgumentParser parser) {
 	}
 }

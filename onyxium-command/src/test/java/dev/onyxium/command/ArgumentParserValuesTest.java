@@ -2,15 +2,13 @@ package dev.onyxium.command;
 
 import static org.assertj.core.api.Assertions.assertThat;
 
-import java.util.List;
-import java.util.UUID;
-
+import module java.base;
 import org.junit.Test;
 import org.junit.runner.RunWith;
 import org.junit.runners.Parameterized;
 
 @RunWith(Parameterized.class)
-public class BuiltinParsersTest {
+public class ArgumentParserValuesTest {
 
 	Class<?> type;
 
@@ -18,7 +16,7 @@ public class BuiltinParsersTest {
 
 	Object expected;
 
-	public BuiltinParsersTest(Class<?> type, String input, Object expected) {
+	public ArgumentParserValuesTest(Class<?> type, String input, Object expected) {
 		this.type = type;
 		this.input = input;
 		this.expected = expected;
@@ -39,8 +37,8 @@ public class BuiltinParsersTest {
 
 	@Test
 	public void convertsPrimitiveBoxedAndEnumValues() {
-		var parser = BuiltinParsers.<String>find(BuiltinParsers.boxed(type));
-		assertThat(parser.parse("console", input)).isEqualTo(expected);
+		var parser = new ArgumentParser();
+		assertThat(parser.parse(input, type)).isEqualTo(expected);
 	}
 
 	enum Mode {

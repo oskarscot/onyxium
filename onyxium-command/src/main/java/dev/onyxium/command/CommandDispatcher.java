@@ -2,9 +2,7 @@ package dev.onyxium.command;
 
 import java.lang.reflect.Method;
 import java.util.Comparator;
-import java.util.HashMap;
 import java.util.List;
-import java.util.Map;
 import java.util.Objects;
 import java.util.function.BiPredicate;
 import java.util.stream.Stream;
@@ -18,7 +16,7 @@ public final class CommandDispatcher<S> {
 
 	BiPredicate<S, String> permissions;
 
-	Map<Class<?>, ArgumentParser<S, ?>> parsers = new HashMap<>();
+	ArgumentParser argumentParser = new ArgumentParser();
 
 	volatile CommandTree<S> tree = CommandTree.build(List.of());
 
@@ -27,15 +25,8 @@ public final class CommandDispatcher<S> {
 		this.permissions = Objects.requireNonNull(permissions, "permissions");
 	}
 
-	/// Custom parsers must be registered before handlers that reference their value
-	/// types.
-	public synchronized <T> void registerParser(Class<T> type, ArgumentParser<S, T> parser) {
-		Objects.requireNonNull(type, "type");
-		Objects.requireNonNull(parser, "parser");
-		var boxed = BuiltinParsers.boxed(type);
-		if (BuiltinParsers.find(boxed) != null || parsers.putIfAbsent(boxed, parser) != null) {
-			throw new IllegalArgumentException("An argument parser already exists for " + type.getTypeName());
-		}
+	public ArgumentParser argumentParser() {
+		return argumentParser;
 	}
 
 	/// Only annotated methods declared on the handler class are scanned. The whole
@@ -47,7 +38,7 @@ public final class CommandDispatcher<S> {
 		var additions = Stream.of(handler.getClass().getDeclaredMethods())
 			.filter(method -> method.isAnnotationPresent(Command.class))
 			.sorted(Comparator.comparing(Method::toGenericString))
-			.map(method -> RegisteredCommand.compile(handler, method, sourceType, this::parser))
+			.map(method -> RegisteredCommand.compile(handler, method, sourceType, argumentParser))
 			.toList();
 		if (additions.isEmpty())
 			throw new IllegalArgumentException("Handler has no declared @Command methods.");
@@ -70,11 +61,6 @@ public final class CommandDispatcher<S> {
 			.filter(command -> permitted(command, source))
 			.map(RegisteredCommand::definition)
 			.toList();
-	}
-
-	ArgumentParser<S, ?> parser(Class<?> type) {
-		var custom = parsers.get(type);
-		return custom != null ? custom : BuiltinParsers.find(type);
 	}
 
 	boolean permitted(RegisteredCommand<S> command, S source) {
