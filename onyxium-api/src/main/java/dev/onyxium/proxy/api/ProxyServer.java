@@ -1,10 +1,10 @@
 package dev.onyxium.proxy.api;
 
-import java.util.Collection;
-import java.util.Optional;
-import java.util.UUID;
+import module java.base;
 
+import dev.onyxium.command.CommandDispatcher;
 import dev.onyxium.eventbus.EventBus;
+import dev.onyxium.proxy.api.command.ConsoleSource;
 import dev.onyxium.proxy.api.network.NetworkManager;
 import dev.onyxium.proxy.api.player.Player;
 
@@ -19,6 +19,11 @@ public interface ProxyServer {
 	///
 	/// @return the proxy's event bus
 	EventBus eventBus();
+
+	/// Register handlers before starting the proxy. Dispatch runs on the calling thread.
+	CommandDispatcher commandDispatcher();
+
+	ConsoleSource console();
 
 	/// Returns an unmodifiable snapshot of the registered players.
 	///

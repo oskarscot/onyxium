@@ -1,9 +1,6 @@
 package dev.onyxium.proxy.player;
 
-import java.net.SocketAddress;
-import java.util.Objects;
-import java.util.UUID;
-
+import module java.base;
 import org.jetbrains.annotations.NotNull;
 
 import dev.onyxium.proxy.api.message.FormattedMessage;
@@ -65,6 +62,12 @@ public final class ProxyPlayer implements Player {
 	@Override
 	public boolean active() {
 		return connection.active();
+	}
+
+	/// Backend permissions are not shared with the proxy. Named permissions are denied for now.
+	@Override
+	public boolean hasPermission(String permission) {
+		return false;
 	}
 
 	@Override

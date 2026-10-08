@@ -1,16 +1,6 @@
 package dev.onyxium.proxy;
-
-import java.io.BufferedReader;
-import java.io.IOException;
-import java.io.InputStreamReader;
-import java.net.URLEncoder;
-import java.nio.charset.StandardCharsets;
-import java.nio.file.InvalidPathException;
-import java.nio.file.Path;
-import java.util.List;
-import java.util.UUID;
-
 import eu.okaeri.configs.exception.OkaeriException;
+import module java.base;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -27,6 +17,8 @@ public final class AppBootstrap {
 
 	private static final String USAGE = "Usage: onyxium-proxy [--config <path>] [--help]";
 
+	BufferedReader input = new BufferedReader(new InputStreamReader(System.in, StandardCharsets.UTF_8));
+
 	// TODO: proper argument parsing
 	void main(String... args) {
 		if (args.length == 1 && (args[0].equals("--help") || args[0].equals("-h"))) {
@@ -42,12 +34,13 @@ public final class AppBootstrap {
 				credentials = login
 					.login(prompt -> LOGGER.info("Log in to Hytale at {}?user_code={} (expires in {} seconds)",
 							prompt.verificationUri(), URLEncoder.encode(prompt.userCode(), StandardCharsets.UTF_8),
-							prompt.expiresIn()), AppBootstrap::selectProfile);
+							prompt.expiresIn()), this::selectProfile);
 			}
 			var proxy = new OnyxiumProxy(new NettyNetworkManager(configuration, credentials));
 			Runtime.getRuntime().addShutdownHook(new Thread(proxy::stop, "onyxium-shutdown"));
 			LOGGER.info("Hytale authentication completed");
 			proxy.start();
+			Thread.ofVirtual().name("onyxium-console").start(() -> proxy.console().read(input));
 		}
 		catch (OkaeriException exception) {
 			LOGGER.error(
@@ -60,11 +53,10 @@ public final class AppBootstrap {
 		}
 	}
 
-	private static UUID selectProfile(List<HytaleDeviceLogin.GameProfile> profiles) {
+	UUID selectProfile(List<HytaleDeviceLogin.GameProfile> profiles) {
 		for (var i = 0; i < profiles.size(); i++) {
 			LOGGER.info("[{}] {} ({})", i + 1, profiles.get(i).username(), profiles.get(i).uuid());
 		}
-		var input = new BufferedReader(new InputStreamReader(System.in, StandardCharsets.UTF_8));
 		while (true) {
 			LOGGER.info("Enter the number of the Hytale profile to use:");
 			try {

@@ -1,14 +1,13 @@
 package dev.onyxium.proxy.api.player;
 
-import java.net.SocketAddress;
-import java.util.UUID;
-
+import module java.base;
 import org.jetbrains.annotations.NotNull;
 
+import dev.onyxium.command.CommandSource;
 import dev.onyxium.proxy.api.message.FormattedMessage;
 
 /// An authenticated player's identity and connection to the proxy.
-public interface Player {
+public interface Player extends CommandSource {
 
 	/// Returns the player's verified UUID.
 	///
@@ -46,5 +45,10 @@ public interface Player {
 	///
 	/// @param message the message to send to the player
 	void sendMessage(@NotNull FormattedMessage message);
+
+	@Override
+	default void sendMessage(String message) {
+		sendMessage(FormattedMessage.text(message));
+	}
 
 }

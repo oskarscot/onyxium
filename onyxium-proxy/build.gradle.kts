@@ -42,6 +42,7 @@ dependencies {
     runtimeOnly(libs.logback.classic)
 
     testImplementation(libs.junit)
+    testImplementation(libs.assertj)
     testImplementation(libs.mockito)
     mockitoAgent(libs.mockito) { isTransitive = false }
 }

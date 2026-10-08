@@ -1,18 +1,16 @@
 package dev.onyxium.proxy;
 
-import java.util.Collection;
-import java.util.List;
-import java.util.Objects;
-import java.util.Optional;
-import java.util.UUID;
-
+import module java.base;
 import org.jetbrains.annotations.ApiStatus;
 import org.jetbrains.annotations.NotNull;
 
+import dev.onyxium.command.CommandDispatcher;
 import dev.onyxium.eventbus.EventBus;
 import dev.onyxium.proxy.api.ProxyServer;
 import dev.onyxium.proxy.api.network.NetworkManager;
 import dev.onyxium.proxy.api.player.Player;
+import dev.onyxium.proxy.command.ProxyCommands;
+import dev.onyxium.proxy.command.ProxyConsole;
 import dev.onyxium.proxy.io.NettyNetworkManager;
 import dev.onyxium.proxy.lifecycle.Lifecycle;
 import dev.onyxium.proxy.lifecycle.LifecycleException;
@@ -20,12 +18,17 @@ import dev.onyxium.proxy.lifecycle.LifecycleException;
 @ApiStatus.Internal
 public final class OnyxiumProxy implements ProxyServer, Lifecycle {
 
-	private final NettyNetworkManager networkManager;
+	NettyNetworkManager networkManager;
 
-	private final EventBus eventBus = new EventBus();
+	EventBus eventBus = new EventBus();
+
+	CommandDispatcher commandDispatcher = new CommandDispatcher();
+
+	ProxyConsole console = new ProxyConsole(commandDispatcher);
 
 	public OnyxiumProxy(@NotNull NettyNetworkManager networkManager) {
 		this.networkManager = Objects.requireNonNull(networkManager, "networkManager");
+		commandDispatcher.registerHandler(new ProxyCommands(this));
 	}
 
 	@Override
@@ -37,6 +40,16 @@ public final class OnyxiumProxy implements ProxyServer, Lifecycle {
 	@Override
 	public EventBus eventBus() {
 		return this.eventBus;
+	}
+
+	@Override
+	public CommandDispatcher commandDispatcher() {
+		return commandDispatcher;
+	}
+
+	@Override
+	public ProxyConsole console() {
+		return console;
 	}
 
 	@Override
