@@ -8,13 +8,12 @@ import org.junit.Test;
 
 import dev.onyxium.command.CommandFixtures.ConsoleSource;
 import dev.onyxium.command.CommandFixtures.PlayerSource;
-import dev.onyxium.command.CommandFixtures.Source;
 
 public class CommandRegistrationTest {
 
 	@Test
 	public void reflectsParameterNamesAndOptionalGreedyUsage() {
-		var dispatcher = new CommandDispatcher<>(Source.class, Source::hasPermission);
+		var dispatcher = new CommandDispatcher();
 		dispatcher.registerHandler(new Commands());
 		var kick = dispatcher.commands()
 			.stream()
@@ -32,7 +31,7 @@ public class CommandRegistrationTest {
 
 	@Test
 	public void filtersConsoleOnlyAndPlayerOnlyMetadata() {
-		var dispatcher = new CommandDispatcher<>(Source.class, Source::hasPermission);
+		var dispatcher = new CommandDispatcher();
 		dispatcher.registerHandler(new Commands());
 		var console = new ConsoleSource(Set.of("onyxium.kick"));
 		var player = new PlayerSource(Set.of());
@@ -43,7 +42,7 @@ public class CommandRegistrationTest {
 
 	@Test
 	public void conflictingAliasLeavesPreviousRegistrationIntact() {
-		var dispatcher = new CommandDispatcher<>(Source.class, Source::hasPermission);
+		var dispatcher = new CommandDispatcher();
 		dispatcher.registerHandler(new Commands());
 		var original = dispatcher.commands();
 
@@ -53,7 +52,7 @@ public class CommandRegistrationTest {
 
 	@Test
 	public void invalidHandlerPublishesNoneOfItsValidMethods() {
-		var dispatcher = new CommandDispatcher<>(Source.class, Source::hasPermission);
+		var dispatcher = new CommandDispatcher();
 
 		assertThatIllegalArgumentException().isThrownBy(() -> dispatcher.registerHandler(new PartiallyInvalid()));
 		assertThat(dispatcher.commands()).isEmpty();
@@ -61,7 +60,7 @@ public class CommandRegistrationTest {
 
 	@Test
 	public void closingRegistrationRemovesOnlyItsOwnedCommands() {
-		var dispatcher = new CommandDispatcher<>(Source.class, Source::hasPermission);
+		var dispatcher = new CommandDispatcher();
 		var registration = dispatcher.registerHandler(new Commands());
 		dispatcher.registerHandler(new Other());
 		registration.close();
@@ -72,7 +71,7 @@ public class CommandRegistrationTest {
 
 	@Test
 	public void resolvesNestedCommandsThroughParentAndLeafAliases() {
-		var dispatcher = new CommandDispatcher<>(Source.class, Source::hasPermission);
+		var dispatcher = new CommandDispatcher();
 		dispatcher.registerHandler(new Commands());
 		dispatcher.registerHandler(new Parent());
 
@@ -83,7 +82,7 @@ public class CommandRegistrationTest {
 
 	@Test
 	public void aliasesCannotShadowImplicitParentPaths() {
-		var dispatcher = new CommandDispatcher<>(Source.class, Source::hasPermission);
+		var dispatcher = new CommandDispatcher();
 
 		assertThatIllegalArgumentException().isThrownBy(() -> dispatcher.registerHandler(new ParentConflict()));
 		assertThat(dispatcher.commands()).isEmpty();
@@ -92,7 +91,7 @@ public class CommandRegistrationTest {
 	public static class Parent {
 
 		@Command(name = "foo", aliases = { "f" })
-		public void execute(Source source) {
+		public void execute(CommandSource source) {
 		}
 
 	}
@@ -100,11 +99,11 @@ public class CommandRegistrationTest {
 	public static class ParentConflict {
 
 		@Command(name = "foo nested")
-		public void nested(Source source) {
+		public void nested(CommandSource source) {
 		}
 
 		@Command(name = "other", aliases = { "foo" })
-		public void other(Source source) {
+		public void other(CommandSource source) {
 		}
 
 	}
@@ -112,7 +111,7 @@ public class CommandRegistrationTest {
 	public static class Commands {
 
 		@Command(name = "foo bar", permission = "onyxium.kick", aliases = { "barfoo" })
-		public void kick(Source source, String player, @Greedy Optional<String> reason) {
+		public void kick(CommandSource source, String player, @Greedy Optional<String> reason) {
 		}
 
 		@Command(name = "stop")
@@ -128,7 +127,7 @@ public class CommandRegistrationTest {
 	public static class Conflict {
 
 		@Command(name = "foo different", aliases = { "barfoo" })
-		public void execute(Source source) {
+		public void execute(CommandSource source) {
 		}
 
 	}
@@ -136,7 +135,7 @@ public class CommandRegistrationTest {
 	public static class Other {
 
 		@Command(name = "other")
-		public void execute(Source source) {
+		public void execute(CommandSource source) {
 		}
 
 	}
@@ -144,11 +143,11 @@ public class CommandRegistrationTest {
 	public static class PartiallyInvalid {
 
 		@Command(name = "valid")
-		public void aaaValid(Source source) {
+		public void aaaValid(CommandSource source) {
 		}
 
 		@Command(name = "invalid")
-		public void zzzInvalid(Source source, @Greedy int number) {
+		public void zzzInvalid(CommandSource source, @Greedy int number) {
 		}
 
 	}

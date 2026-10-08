@@ -4,8 +4,8 @@ import module java.base;
 
 record RegisteredCommand(CommandDefinition definition, MethodHandle invocation) {
 
-	static RegisteredCommand compile(Object handler, Method method, Class<?> sourceType, ArgumentParser parsers) {
-		validateSignature(method, sourceType);
+	static RegisteredCommand compile(Object handler, Method method, ArgumentParser parsers) {
+		validateSignature(method);
 
 		var parameters = method.getParameters();
 		var arguments = Stream.of(parameters)
@@ -24,7 +24,7 @@ record RegisteredCommand(CommandDefinition definition, MethodHandle invocation) 
 		}
 
 		var definition = new CommandDefinition(name, aliases, annotation.permission(), annotation.description(),
-				parameters[0].getType(), arguments);
+				parameters[0].getType().asSubclass(CommandSource.class), arguments);
 
 		try {
 			var invocation = MethodHandles.publicLookup()
@@ -39,7 +39,7 @@ record RegisteredCommand(CommandDefinition definition, MethodHandle invocation) 
 		}
 	}
 
-	static void validateSignature(Method method, Class<?> sourceType) {
+	static void validateSignature(Method method) {
 		var modifiers = method.getModifiers();
 		if (!Modifier.isPublic(modifiers) || Modifier.isStatic(modifiers) || method.isVarArgs()
 				|| method.getReturnType() != void.class) {
@@ -47,8 +47,8 @@ record RegisteredCommand(CommandDefinition definition, MethodHandle invocation) 
 		}
 
 		var parameters = method.getParameters();
-		if (parameters.length == 0 || !sourceType.isAssignableFrom(parameters[0].getType())) {
-			throw invalid(method, "The first parameter must be the configured source type or a subtype.");
+		if (parameters.length == 0 || !CommandSource.class.isAssignableFrom(parameters[0].getType())) {
+			throw invalid(method, "The first parameter must be CommandSource or a subtype.");
 		}
 
 		if (parameters[0].isAnnotationPresent(Greedy.class)) {

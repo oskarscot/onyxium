@@ -7,7 +7,6 @@ import org.junit.Test;
 import org.junit.runner.RunWith;
 import org.junit.runners.Parameterized;
 
-import dev.onyxium.command.CommandFixtures.Source;
 
 @RunWith(Parameterized.class)
 public class CommandRegistrationInvalidTest {
@@ -37,7 +36,7 @@ public class CommandRegistrationInvalidTest {
 
 	@Test
 	public void rejectsAmbiguousOrUnsupportedDeclarations() {
-		var dispatcher = new CommandDispatcher<>(Source.class, Source::hasPermission);
+		var dispatcher = new CommandDispatcher();
 
 		assertThatIllegalArgumentException().isThrownBy(() -> dispatcher.registerHandler(handler))
 			.withMessageContaining(message);
@@ -54,7 +53,7 @@ public class CommandRegistrationInvalidTest {
 	public static class NonVoidHandler {
 
 		@Command(name = "foo")
-		public int execute(Source source) {
+		public int execute(CommandSource source) {
 			return 1;
 		}
 
@@ -71,7 +70,7 @@ public class CommandRegistrationInvalidTest {
 	public static class UnsupportedType {
 
 		@Command(name = "foo")
-		public void execute(Source source, Path path) {
+		public void execute(CommandSource source, Path path) {
 		}
 
 	}
@@ -79,7 +78,7 @@ public class CommandRegistrationInvalidTest {
 	public static class OptionalBeforeRequired {
 
 		@Command(name = "foo")
-		public void execute(Source source, Optional<String> first, int second) {
+		public void execute(CommandSource source, Optional<String> first, int second) {
 		}
 
 	}
@@ -87,7 +86,7 @@ public class CommandRegistrationInvalidTest {
 	public static class GreedyBeforeArgument {
 
 		@Command(name = "foo")
-		public void execute(Source source, @Greedy String first, String second) {
+		public void execute(CommandSource source, @Greedy String first, String second) {
 		}
 
 	}
@@ -95,7 +94,7 @@ public class CommandRegistrationInvalidTest {
 	public static class WildcardArgument {
 
 		@Command(name = "foo")
-		public void execute(Source source, Optional<?> first) {
+		public void execute(CommandSource source, Optional<?> first) {
 		}
 
 	}
@@ -103,7 +102,7 @@ public class CommandRegistrationInvalidTest {
 	public static class PathAlias {
 
 		@Command(name = "foo bar", aliases = { "foo baz" })
-		public void execute(Source source) {
+		public void execute(CommandSource source) {
 		}
 
 	}
@@ -111,7 +110,7 @@ public class CommandRegistrationInvalidTest {
 	public static class EmptyPath {
 
 		@Command(name = " ")
-		public void execute(Source source) {
+		public void execute(CommandSource source) {
 		}
 
 	}
@@ -119,7 +118,7 @@ public class CommandRegistrationInvalidTest {
 	public static class VarargsHandler {
 
 		@Command(name = "foo")
-		public void execute(Source source, String... values) {
+		public void execute(CommandSource source, String... values) {
 		}
 
 	}

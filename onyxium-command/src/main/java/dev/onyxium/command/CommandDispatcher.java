@@ -4,20 +4,11 @@ import module java.base;
 
 /// Registration and removal must not run concurrently with other operations.
 /// Source subtypes restrict commands: a console-only handler accepts the host's console source type.
-public final class CommandDispatcher<S> {
-
-	Class<S> sourceType;
-
-	BiPredicate<S, String> permissions;
+public final class CommandDispatcher {
 
 	ArgumentParser argumentParser = new ArgumentParser();
 
 	CommandTree tree = CommandTree.build(List.of());
-
-	public CommandDispatcher(Class<S> sourceType, BiPredicate<S, String> permissions) {
-		this.sourceType = Objects.requireNonNull(sourceType, "sourceType");
-		this.permissions = Objects.requireNonNull(permissions, "permissions");
-	}
 
 	public ArgumentParser argumentParser() {
 		return argumentParser;
@@ -31,7 +22,7 @@ public final class CommandDispatcher<S> {
 		var additions = Stream.of(handler.getClass().getDeclaredMethods())
 			.filter(method -> method.isAnnotationPresent(Command.class))
 			.sorted(Comparator.comparing(Method::toGenericString))
-			.map(method -> RegisteredCommand.compile(handler, method, sourceType, argumentParser))
+			.map(method -> RegisteredCommand.compile(handler, method, argumentParser))
 			.toList();
 
 		if (additions.isEmpty()) {
@@ -51,8 +42,8 @@ public final class CommandDispatcher<S> {
 
 	/// Filters by the declared source type as well as permission, for source-specific
 	/// help and trees.
-	public List<CommandDefinition> commands(S source) {
-		sourceType.cast(Objects.requireNonNull(source, "source"));
+	public List<CommandDefinition> commands(CommandSource source) {
+		Objects.requireNonNull(source, "source");
 
 		return tree.commands()
 			.stream()
@@ -62,8 +53,8 @@ public final class CommandDispatcher<S> {
 			.toList();
 	}
 
-	boolean permitted(CommandDefinition command, S source) {
-		return command.permission().isEmpty() || permissions.test(source, command.permission());
+	static boolean permitted(CommandDefinition command, CommandSource source) {
+		return command.permission().isEmpty() || source.hasPermission(command.permission());
 	}
 
 	void remove(List<RegisteredCommand> registrations) {

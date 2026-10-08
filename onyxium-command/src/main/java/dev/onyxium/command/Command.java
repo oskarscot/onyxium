@@ -2,7 +2,7 @@ package dev.onyxium.command;
 
 import module java.base;
 
-/// Marks a public instance method returning void. Its first parameter is the source;
+/// Marks a public instance method returning void. Its first parameter is [CommandSource] or a subtype;
 /// remaining parameter names become argument names and require compilation with `-parameters`.
 @Target(ElementType.METHOD)
 @Retention(RetentionPolicy.RUNTIME)

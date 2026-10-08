@@ -4,7 +4,7 @@ import module java.base;
 
 /// A canonical command path with leaf aliases, independent of its reflected method and transport.
 public record CommandDefinition(String name, List<String> aliases, String permission, String description,
-		Class<?> sourceType, List<ArgumentDefinition> arguments) {
+		Class<? extends CommandSource> sourceType, List<ArgumentDefinition> arguments) {
 
 	public CommandDefinition {
 		aliases = List.copyOf(aliases);

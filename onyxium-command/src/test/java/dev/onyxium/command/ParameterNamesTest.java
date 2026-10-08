@@ -21,9 +21,10 @@ public class ParameterNamesTest {
 		var source = directory.resolve("UnnamedHandler.java");
 		Files.writeString(source, """
 				import dev.onyxium.command.Command;
+				import dev.onyxium.command.CommandSource;
 				public class UnnamedHandler {
 				    @Command(name = "foo")
-				    public void execute(String source, String argument) {}
+				    public void execute(CommandSource source, String argument) {}
 				}
 				""");
 		var classpath = Command.class.getProtectionDomain().getCodeSource().getLocation().toURI().getPath();
@@ -34,7 +35,7 @@ public class ParameterNamesTest {
 		try (var loader = new URLClassLoader(new URL[] { directory.toUri().toURL() },
 				Command.class.getClassLoader())) {
 			var handler = loader.loadClass("UnnamedHandler").getConstructor().newInstance();
-			var dispatcher = new CommandDispatcher<>(String.class, (_, _) -> true);
+			var dispatcher = new CommandDispatcher();
 			assertThatIllegalArgumentException().isThrownBy(() -> dispatcher.registerHandler(handler))
 				.withMessageContaining("-parameters");
 		}

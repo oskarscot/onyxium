@@ -4,23 +4,25 @@ import module java.base;
 
 public interface CommandFixtures {
 
-	interface Source {
-
-		boolean hasPermission(String permission);
-
-	}
-
-	record ConsoleSource(Set<String> permissions) implements Source {
+	record ConsoleSource(Set<String> permissions) implements CommandSource {
 		@Override
 		public boolean hasPermission(String permission) {
 			return permissions.contains(permission);
 		}
+
+		@Override
+		public void sendMessage(String message) {
+		}
 	}
 
-	record PlayerSource(Set<String> permissions) implements Source {
+	record PlayerSource(Set<String> permissions) implements CommandSource {
 		@Override
 		public boolean hasPermission(String permission) {
 			return permissions.contains(permission);
+		}
+
+		@Override
+		public void sendMessage(String message) {
 		}
 	}
 
