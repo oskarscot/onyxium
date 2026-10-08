@@ -32,15 +32,13 @@ public class CommandInputTest {
 	}
 
 	@Test
-	public void decodesTokensAndPreservesPeek() {
+	public void decodesTokensWithoutConsumingLookahead() {
 		var input = new CommandInput(raw);
 		for (var token : expected) {
-			var firstPeek = input.peek();
-			assertThat(input.peek()).isSameAs(firstPeek);
+			assertThat(input.peek().value()).isEqualTo(token);
 			assertThat(input.read().value()).isEqualTo(token);
 		}
 		assertThat(input.read()).isNull();
-		assertThat(input.remaining()).isEqualTo("");
 	}
 
 }

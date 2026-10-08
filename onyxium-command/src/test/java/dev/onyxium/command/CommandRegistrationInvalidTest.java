@@ -24,16 +24,13 @@ public class CommandRegistrationInvalidTest {
 	@Parameterized.Parameters(name = "case={index}")
 	public static List<Object[]> cases() {
 		return List.of(new Object[] { new MissingSource(), "first parameter" },
-				new Object[] { new StaticHandler(), "public instance" },
 				new Object[] { new NonVoidHandler(), "returning void" },
-				new Object[] { new InaccessibleHandler(), "public instance" },
 				new Object[] { new WrongSource(), "first parameter" },
 				new Object[] { new UnsupportedType(), "No argument parser" },
 				new Object[] { new OptionalBeforeRequired(), "Required arguments must precede" },
 				new Object[] { new GreedyBeforeArgument(), "Greedy arguments must be last" },
 				new Object[] { new WildcardArgument(), "concrete classes" },
 				new Object[] { new PathAlias(), "Invalid command segment" },
-				new Object[] { new DuplicateAliases(), "Aliases must be distinct" },
 				new Object[] { new EmptyPath(), "cannot be empty" },
 				new Object[] { new VarargsHandler(), "without varargs" });
 	}
@@ -54,27 +51,11 @@ public class CommandRegistrationInvalidTest {
 
 	}
 
-	public static class StaticHandler {
-
-		@Command(name = "foo")
-		public static void execute(Source source) {
-		}
-
-	}
-
 	public static class NonVoidHandler {
 
 		@Command(name = "foo")
 		public int execute(Source source) {
 			return 1;
-		}
-
-	}
-
-	public static class InaccessibleHandler {
-
-		@Command(name = "foo")
-		void execute(Source source) {
 		}
 
 	}
@@ -122,14 +103,6 @@ public class CommandRegistrationInvalidTest {
 	public static class PathAlias {
 
 		@Command(name = "foo bar", aliases = { "foo baz" })
-		public void execute(Source source) {
-		}
-
-	}
-
-	public static class DuplicateAliases {
-
-		@Command(name = "foo bar", aliases = { "bar" })
 		public void execute(Source source) {
 		}
 

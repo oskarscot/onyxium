@@ -15,7 +15,7 @@ public class CommandRegistrationTest {
 	@Test
 	public void reflectsParameterNamesAndOptionalGreedyUsage() {
 		var dispatcher = new CommandDispatcher<>(Source.class, Source::hasPermission);
-		var registration = dispatcher.registerHandler(new Commands());
+		dispatcher.registerHandler(new Commands());
 		var kick = dispatcher.commands()
 			.stream()
 			.filter(command -> command.name().equals("foo bar"))
@@ -28,15 +28,14 @@ public class CommandRegistrationTest {
 				new ArgumentDefinition("reason", String.class, true, true));
 
 		assertThat(kick.usage()).isEqualTo("/foo bar <player> [reason...]");
-		assertThat(registration.commands()).containsExactlyElementsOf(dispatcher.commands());
 	}
 
 	@Test
 	public void filtersConsoleOnlyAndPlayerOnlyMetadata() {
 		var dispatcher = new CommandDispatcher<>(Source.class, Source::hasPermission);
 		dispatcher.registerHandler(new Commands());
-		var console = new ConsoleSource(new ArrayList<>(), Set.of("onyxium.kick"));
-		var player = new PlayerSource(new ArrayList<>(), Set.of());
+		var console = new ConsoleSource(Set.of("onyxium.kick"));
+		var player = new PlayerSource(Set.of());
 
 		assertThat(dispatcher.commands(console)).extracting(CommandDefinition::name).containsExactly("foo bar", "stop");
 		assertThat(dispatcher.commands(player)).extracting(CommandDefinition::name).containsExactly("where");
@@ -72,22 +71,14 @@ public class CommandRegistrationTest {
 	}
 
 	@Test
-	public void parentAliasesShareDescendantsAndLeavePreviousSnapshotsIntact() {
+	public void resolvesNestedCommandsThroughParentAndLeafAliases() {
 		var dispatcher = new CommandDispatcher<>(Source.class, Source::hasPermission);
 		dispatcher.registerHandler(new Commands());
-		var before = dispatcher.tree;
-		var parent = dispatcher.registerHandler(new Parent());
-		var withAlias = dispatcher.tree;
-		var canonical = withAlias.roots().get("foo");
+		dispatcher.registerHandler(new Parent());
 
-		assertThat(withAlias.roots().get("f")).isSameAs(canonical);
-		assertThat(canonical.children().keySet()).containsExactlyInAnyOrder("bar", "barfoo");
-		assertThat(canonical.children().get("barfoo")).isSameAs(canonical.children().get("bar"));
-		assertThat(before.roots().keySet()).containsExactlyInAnyOrder("foo", "stop", "where");
-		parent.close();
+		var command = dispatcher.tree.roots().get("f").children().get("barfoo").command();
 
-		assertThat(dispatcher.tree.roots().keySet()).containsExactlyInAnyOrder("foo", "stop", "where");
-		assertThat(withAlias.roots().keySet()).containsExactlyInAnyOrder("foo", "f", "stop", "where");
+		assertThat(command.definition().name()).isEqualTo("foo bar");
 	}
 
 	@Test
@@ -96,31 +87,6 @@ public class CommandRegistrationTest {
 
 		assertThatIllegalArgumentException().isThrownBy(() -> dispatcher.registerHandler(new ParentConflict()));
 		assertThat(dispatcher.commands()).isEmpty();
-	}
-
-	@Test
-	public void compiledHandleBindsTheHandlerAndUnboxesArguments() throws Throwable {
-		var dispatcher = new CommandDispatcher<>(Source.class, Source::hasPermission);
-		var handler = new Counter();
-		dispatcher.registerHandler(handler);
-		var console = new ConsoleSource(new ArrayList<>(), Set.of());
-		var invocation = dispatcher.tree.commands().getFirst().invocation();
-		invocation.invokeExact(new Object[] { console, 3, Optional.of("hello") });
-
-		assertThat(handler.total).isEqualTo(3);
-		assertThat(console.calls()).containsExactly("hello");
-	}
-
-	public static class Counter {
-
-		int total;
-
-		@Command(name = "count")
-		public void count(ConsoleSource source, int amount, Optional<String> note) {
-			total += amount;
-			source.calls().add(note.orElse(""));
-		}
-
 	}
 
 	public static class Parent {

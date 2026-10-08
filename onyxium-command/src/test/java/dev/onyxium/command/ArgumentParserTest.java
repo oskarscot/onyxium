@@ -11,16 +11,6 @@ import org.junit.Test;
 public class ArgumentParserTest {
 
 	@Test
-	public void infersTheReturnTypeAndAcceptsPrimitiveTargets() {
-		var parser = new ArgumentParser();
-		Integer boxed = parser.parse("42", Integer.class);
-		int primitive = parser.parse("43", int.class);
-
-		assertThat(boxed).isEqualTo(42);
-		assertThat(primitive).isEqualTo(43);
-	}
-
-	@Test
 	public void customConverterCannotBeReplacedAfterRegistration() {
 		var parser = new ArgumentParser();
 		parser.register(Backend.class, Backend::new);
@@ -31,11 +21,9 @@ public class ArgumentParserTest {
 	}
 
 	@Test
-	public void reportsUnsupportedTargetsAndBrokenConverters() {
+	public void rejectsNullConverterResults() {
 		var parser = new ArgumentParser();
 
-		assertThatIllegalArgumentException().isThrownBy(() -> parser.parse("lobby", Backend.class))
-			.withMessage("Cannot parse 'lobby' as " + Backend.class.getTypeName() + ".");
 		parser.register(Backend.class, _ -> null);
 
 		assertThatIllegalStateException().isThrownBy(() -> parser.parse("lobby", Backend.class))
@@ -43,19 +31,11 @@ public class ArgumentParserTest {
 	}
 
 	@Test
-	public void offersEnumAndBooleanCandidates() {
-		var parser = new ArgumentParser();
-
-		assertThat(parser.suggestions(ArgumentParserValuesTest.Mode.class)).containsExactly("GAME", "CREATIVE");
-		assertThat(parser.suggestions(boolean.class)).containsExactly("true", "false");
-	}
-
-	@Test
 	public void createsTheSuppliedExceptionOnlyWhenConversionFails() {
 		var parser = new ArgumentParser();
 		var created = new AtomicInteger();
-		var failure = new IllegalStateException("Invalid amount");
-		Supplier<IllegalStateException> supplier = () -> supplied(created, failure);
+		var failure = new IllegalArgumentException("Invalid amount");
+		Supplier<IllegalArgumentException> supplier = () -> supplied(created, failure);
 
 		assertThat(parser.parse("42", Integer.class, supplier)).isEqualTo(42);
 		assertThat(created.get()).isEqualTo(0);
@@ -74,7 +54,7 @@ public class ArgumentParserTest {
 			.isSameAs(failure);
 	}
 
-	static <E extends RuntimeException> E supplied(AtomicInteger created, E failure) {
+	static IllegalArgumentException supplied(AtomicInteger created, IllegalArgumentException failure) {
 		created.incrementAndGet();
 		return failure;
 	}

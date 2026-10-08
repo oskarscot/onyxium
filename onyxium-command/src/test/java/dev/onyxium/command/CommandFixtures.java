@@ -10,14 +10,14 @@ public interface CommandFixtures {
 
 	}
 
-	record ConsoleSource(List<String> calls, Set<String> permissions) implements Source {
+	record ConsoleSource(Set<String> permissions) implements Source {
 		@Override
 		public boolean hasPermission(String permission) {
 			return permissions.contains(permission);
 		}
 	}
 
-	record PlayerSource(List<String> calls, Set<String> permissions) implements Source {
+	record PlayerSource(Set<String> permissions) implements Source {
 		@Override
 		public boolean hasPermission(String permission) {
 			return permissions.contains(permission);
