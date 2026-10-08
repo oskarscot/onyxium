@@ -87,4 +87,9 @@ subprojects {
             languageVersion = JavaLanguageVersion.of(25)
         }
     }
+
+    // Command argument names come from reflection rather than duplicate annotation attributes.
+    tasks.withType<JavaCompile>().configureEach {
+        options.compilerArgs.add("-parameters")
+    }
 }
