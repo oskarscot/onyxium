@@ -25,6 +25,10 @@ public interface ProxyServer {
 
 	ConsoleSource console();
 
+	/// Stops the proxy and waits for network and authentication cleanup.
+	/// Call from outside a network event loop, such as the console or a shutdown hook.
+	void shutdown();
+
 	/// Returns an unmodifiable snapshot of the registered players.
 	///
 	/// @return the players registered when the snapshot was taken

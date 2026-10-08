@@ -5,6 +5,7 @@ import module java.base;
 import dev.onyxium.command.Command;
 import dev.onyxium.command.CommandSource;
 import dev.onyxium.proxy.api.ProxyServer;
+import dev.onyxium.proxy.api.command.ConsoleSource;
 import dev.onyxium.proxy.api.player.Player;
 
 public final class ProxyCommands {
@@ -29,5 +30,11 @@ public final class ProxyCommands {
 				.collect(Collectors.joining(", "));
 
 		source.sendMessage("Online players (%d): %s".formatted(players.size(), names.isEmpty() ? "none" : names));
+	}
+
+	@Command(name = "onyxium stop", description = "Shuts down the proxy")
+	public void stop(ConsoleSource source) {
+		source.sendMessage("Stopping proxy...");
+		proxy.shutdown();
 	}
 }

@@ -13,6 +13,8 @@ import io.netty.channel.ChannelHandler;
 import io.netty.channel.ChannelOption;
 import io.netty.channel.EventLoopGroup;
 import io.netty.channel.MultiThreadIoEventLoopGroup;
+import io.netty.channel.group.ChannelGroup;
+import io.netty.channel.group.DefaultChannelGroup;
 import io.netty.channel.nio.NioIoHandler;
 import io.netty.channel.socket.nio.NioDatagramChannel;
 import io.netty.handler.codec.quic.InsecureQuicTokenHandler;
@@ -22,6 +24,7 @@ import io.netty.handler.codec.quic.QuicSslContext;
 import io.netty.handler.codec.quic.QuicSslContextBuilder;
 import io.netty.handler.ssl.ClientAuth;
 import io.netty.handler.ssl.util.InsecureTrustManagerFactory;
+import io.netty.util.concurrent.ImmediateEventExecutor;
 import org.jetbrains.annotations.ApiStatus;
 import org.jetbrains.annotations.NotNull;
 import org.slf4j.Logger;
@@ -71,6 +74,8 @@ public final class NettyNetworkManager implements NetworkManager {
 	private EventLoopGroup eventLoopGroup;
 
 	private Channel channel;
+
+	ChannelGroup connections;
 
 	private volatile boolean running;
 
@@ -127,6 +132,7 @@ public final class NettyNetworkManager implements NetworkManager {
 			this.authentication = providedAuthentication != null ? providedAuthentication
 					: new HytaleAuthenticationService(authenticationConfiguration);
 			this.eventLoopGroup = new MultiThreadIoEventLoopGroup(NioIoHandler.newFactory());
+			this.connections = new DefaultChannelGroup(ImmediateEventExecutor.INSTANCE, true);
 			if (onAuthenticated == null)
 				backendConnector = new BackendConnector(backendConfigurations);
 			this.channel = new Bootstrap().group(this.eventLoopGroup)
@@ -154,12 +160,16 @@ public final class NettyNetworkManager implements NetworkManager {
 		}
 	}
 
-	public void stop() {
+	/// Console shutdown and the JVM hook can arrive together; cleanup must finish only
+	/// once.
+	public synchronized void stop() {
 		if (!this.running) {
 			return;
 		}
 
 		this.running = false;
+		// QUIC close packets need the UDP listener to remain open until they are flushed.
+		this.connections.close().syncUninterruptibly();
 		this.channel.close().syncUninterruptibly();
 		this.channel = null;
 
@@ -193,7 +203,8 @@ public final class NettyNetworkManager implements NetworkManager {
 			.handler(new QuicConnectionInitializer(new LoginContext(proxy, authentication, players,
 					ProtocolVersion.CURRENT, password,
 					onAuthenticated == null ? player -> backendConnector.connect(player, proxy.commandDispatcher())
-							: onAuthenticated)))
+							: onAuthenticated),
+					connections))
 			.streamHandler(new QuicStreamInitializer())
 			.build();
 	}

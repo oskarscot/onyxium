@@ -7,6 +7,8 @@ import static org.junit.Assert.assertFalse;
 import static org.junit.Assert.assertNotNull;
 import static org.junit.Assert.assertTrue;
 
+import java.io.BufferedReader;
+import java.io.StringReader;
 import java.net.InetSocketAddress;
 import java.nio.ByteBuffer;
 import java.nio.ByteOrder;
@@ -182,6 +184,25 @@ public class ForwardingIntegrationTest {
 	void assertChatResponse(QuicStreamChannel game, String input, Packet expected) throws Exception {
 		game.writeAndFlush(new ChatMessage(input)).sync();
 		assertThat(received.poll(10, TimeUnit.SECONDS)).isEqualTo(expected);
+	}
+
+	@Test
+	public void stopsProxyFromConsoleAndRejectsPlayerShutdown() throws Exception {
+		var game = start(false);
+		assertThat(received.poll(10, TimeUnit.SECONDS)).isInstanceOf(ServerAuthToken.class);
+		assertThat(received.poll(10, TimeUnit.SECONDS)).isInstanceOf(UnknownPacket.class);
+		var backend = upstream.get(10, TimeUnit.SECONDS);
+
+		assertChatResponse(game, "/onyxium stop",
+				new ServerMessage(FormattedMessage.text("This command is not available to this source.")));
+		assertThat(server.networkManager().running()).isTrue();
+
+		server.console().read(new BufferedReader(new StringReader("onyxium stop")));
+
+		assertThat(server.networkManager().running()).isFalse();
+		assertThat(game.parent().closeFuture().await(10, TimeUnit.SECONDS)).isTrue();
+		assertThat(backend.closeFuture().await(10, TimeUnit.SECONDS)).isTrue();
+		assertThat(server.players()).isEmpty();
 	}
 
 	@Test

@@ -37,7 +37,7 @@ public final class AppBootstrap {
 							prompt.expiresIn()), this::selectProfile);
 			}
 			var proxy = new OnyxiumProxy(new NettyNetworkManager(configuration, credentials));
-			Runtime.getRuntime().addShutdownHook(new Thread(proxy::stop, "onyxium-shutdown"));
+			Runtime.getRuntime().addShutdownHook(new Thread(proxy::shutdown, "onyxium-shutdown"));
 			LOGGER.info("Hytale authentication completed");
 			proxy.start();
 			Thread.ofVirtual().name("onyxium-console").start(() -> proxy.console().read(input));

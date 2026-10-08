@@ -68,7 +68,7 @@ public final class OnyxiumProxy implements ProxyServer, Lifecycle {
 	}
 
 	@Override
-	public void stop() {
+	public void shutdown() {
 		this.networkManager.stop();
 	}
 
