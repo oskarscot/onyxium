@@ -2,8 +2,8 @@ package dev.onyxium.command;
 
 import module java.base;
 
-/// Owns one handler's registrations. Closing is idempotent and removes its commands and aliases.
-public final class CommandRegistration implements AutoCloseable {
+/// Owns one handler's registrations. Unregistering removes its commands and aliases; repeated calls are safe.
+public final class CommandRegistration {
 
 	List<CommandDefinition> commands;
 
@@ -18,8 +18,7 @@ public final class CommandRegistration implements AutoCloseable {
 		return commands;
 	}
 
-	@Override
-	public void close() {
+	public void unregister() {
 		if (removal != null) {
 			removal.run();
 			removal = null;

@@ -59,12 +59,12 @@ public class CommandRegistrationTest {
 	}
 
 	@Test
-	public void closingRegistrationRemovesOnlyItsOwnedCommands() {
+	public void unregisteringRemovesOnlyItsOwnedCommands() {
 		var dispatcher = new CommandDispatcher();
 		var registration = dispatcher.registerHandler(new Commands());
 		dispatcher.registerHandler(new Other());
-		registration.close();
-		registration.close();
+		registration.unregister();
+		registration.unregister();
 
 		assertThat(dispatcher.commands()).extracting(CommandDefinition::name).containsExactly("other");
 	}

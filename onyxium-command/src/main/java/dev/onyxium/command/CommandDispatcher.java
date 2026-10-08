@@ -17,7 +17,7 @@ public final class CommandDispatcher {
 	}
 
 	/// Inherited methods are ignored. Validation is atomic: a failure leaves
-	/// existing registrations intact. Close the returned registration to remove it.
+	/// existing registrations intact. Use the returned registration to unregister the handler.
 	public CommandRegistration registerHandler(Object handler) {
 		Objects.requireNonNull(handler, "handler");
 
