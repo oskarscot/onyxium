@@ -11,6 +11,7 @@ repositories {
 dependencies {
     implementation(project(":onyxium-forwarding"))
     testImplementation(libs.junit)
+    testImplementation(libs.assertj)
     testImplementation(project(":onyxium-proxy"))
     testImplementation(project(":onyxium-api"))
     testRuntimeOnly("com.hypixel.hytale:Server:${providers.gradleProperty("hytaleServerVersion").orElse(libs.versions.hytale.server.get()).get()}")

@@ -13,7 +13,8 @@ public final class EventBus {
 
 	/// Registers accessible [Subscribe] instance methods declared by the handler's
 	/// class. Each method must accept exactly one [Event] parameter; inherited
-	/// methods are ignored. Registering the same handler again adds duplicate subscriptions.
+	/// methods are ignored. Registering the same handler again adds duplicate
+	/// subscriptions.
 	///
 	/// @param handler the object containing subscriber methods
 	/// @throws IllegalArgumentException if a subscriber has an invalid signature
@@ -29,38 +30,29 @@ public final class EventBus {
 			var parameters = method.getParameterTypes();
 
 			if (parameters.length != 1) {
-				throw new IllegalArgumentException(
-					"Subscriber methods must take exactly one event"
-				);
+				throw new IllegalArgumentException("Subscriber methods must take exactly one event");
 			}
 
 			var eventType = parameters[0];
 
 			if (!Event.class.isAssignableFrom(eventType)) {
-				throw new IllegalArgumentException(
-					"Subscriber parameter must implement Event"
-				);
+				throw new IllegalArgumentException("Subscriber parameter must implement Event");
 			}
 
 			@SuppressWarnings("unchecked")
 			var eventClass = (Class<? extends Event>) eventType;
 
-			var eventHandler = eventMap.computeIfAbsent(
-				eventClass,
-				_ -> new EventHandler<>()
-			);
+			var eventHandler = eventMap.computeIfAbsent(eventClass, _ -> new EventHandler<>());
 
 			var lookup = MethodHandles.lookup();
 
 			try {
 				var handle = lookup.unreflect(method).bindTo(handler);
 
-				var registration = new EventRegistration(
-					handle,
-					subscribe.value()
-				);
+				var registration = new EventRegistration(handle, subscribe.value());
 				eventHandler.register(registration);
-			} catch (IllegalAccessException e) {
+			}
+			catch (IllegalAccessException e) {
 				throw new RuntimeException(e);
 			}
 		}
@@ -90,10 +82,8 @@ public final class EventBus {
 	}
 
 	@SuppressWarnings("unchecked")
-	private <T extends Event> void dispatch(
-		EventHandler<?> handler,
-		T event
-	) {
+	private <T extends Event> void dispatch(EventHandler<?> handler, T event) {
 		((EventHandler<T>) handler).dispatch(event);
 	}
+
 }

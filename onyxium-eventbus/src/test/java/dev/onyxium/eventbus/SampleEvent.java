@@ -15,4 +15,5 @@ public class SampleEvent implements Event {
 	public void setText(String text) {
 		this.text = text;
 	}
+
 }

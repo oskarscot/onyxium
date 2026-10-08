@@ -23,7 +23,7 @@ public final class PacketRegistry {
 	private static final Int2ObjectMap<PacketInfo> PACKETS = new Int2ObjectOpenHashMap<>();
 
 	static {
-		register(0, 46, 37972, Connect::deserialize);
+		register(0, 46, 38056, Connect::deserialize);
 		register(1, 2, 2, ClientDisconnect::deserialize);
 		register(2, 2, PacketDecoder.FORWARDING_MAX_FRAME_SIZE, ServerDisconnect::deserialize);
 		register(3, 28, 28, Ping::deserialize);

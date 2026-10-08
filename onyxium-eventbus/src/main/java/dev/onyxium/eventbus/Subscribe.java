@@ -14,4 +14,5 @@ public @interface Subscribe {
 	///
 	/// @return the priority, defaulting to `0`
 	int value() default 0;
+
 }

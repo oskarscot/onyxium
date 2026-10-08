@@ -36,9 +36,11 @@ public final class EventHandler<T extends Event> {
 		for (var registration : snapshot) {
 			try {
 				registration.handle().invoke(event);
-			} catch (Throwable e) {
+			}
+			catch (Throwable e) {
 				throw new RuntimeException(e);
 			}
 		}
 	}
+
 }

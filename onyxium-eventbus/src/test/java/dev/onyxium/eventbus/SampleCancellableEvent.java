@@ -3,6 +3,7 @@ package dev.onyxium.eventbus;
 public class SampleCancellableEvent implements CancellableEvent {
 
 	private boolean cancelled;
+
 	private int number;
 
 	public SampleCancellableEvent(int number) {
@@ -26,4 +27,5 @@ public class SampleCancellableEvent implements CancellableEvent {
 	public void setCancelled(boolean cancelled) {
 		this.cancelled = cancelled;
 	}
+
 }

@@ -10,7 +10,8 @@ import dev.onyxium.proxy.util.NettyUtil;
 
 /// The protocol-3 Connect layout: 30 fixed bytes, four heap-relative offsets, then
 /// identity token, language and optional referral fields. Player identity comes from the JWT.
-public record Connect(int protocolCrc, int protocolBuildNumber, String clientVersion, ClientType clientType,
+/// The unsigned CRC occupies four bytes on the wire even though the API uses a long.
+public record Connect(long protocolCrc, int protocolBuildNumber, String clientVersion, ClientType clientType,
 		String language, @Nullable String identityToken, byte @Nullable [] referralData,
 		@Nullable HostAddress referralSource) implements Packet {
 
@@ -24,7 +25,7 @@ public record Connect(int protocolCrc, int protocolBuildNumber, String clientVer
 
 	private static final int MAX_IDENTITY_TOKEN_LENGTH = 8192;
 
-	private static final int MAX_LANGUAGE_LENGTH = 16;
+	private static final int MAX_LANGUAGE_LENGTH = 100;
 
 	private static final int MAX_REFERRAL_DATA_LENGTH = 4096;
 
@@ -36,7 +37,7 @@ public record Connect(int protocolCrc, int protocolBuildNumber, String clientVer
 	public static Connect deserialize(ByteBuf buf) {
 		int nullBits = buf.readUnsignedByte();
 
-		var protocolCrc = buf.readIntLE();
+		var protocolCrc = buf.readUnsignedIntLE();
 		var protocolBuildNumber = buf.readIntLE();
 		var clientVersion = NettyUtil.readFixedAscii(buf, CLIENT_VERSION_WIDTH);
 		var clientType = ClientType.getById(buf.readByte());
@@ -101,7 +102,7 @@ public record Connect(int protocolCrc, int protocolBuildNumber, String clientVer
 		}
 
 		buf.writeByte(nullBits);
-		buf.writeIntLE(this.protocolCrc);
+		buf.writeIntLE((int) this.protocolCrc);
 		buf.writeIntLE(this.protocolBuildNumber);
 		NettyUtil.writeFixedAscii(buf, this.clientVersion, CLIENT_VERSION_WIDTH);
 		buf.writeByte(this.clientType.getId());

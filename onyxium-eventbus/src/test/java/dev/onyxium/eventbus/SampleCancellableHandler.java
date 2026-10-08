@@ -13,4 +13,5 @@ public class SampleCancellableHandler {
 		IO.println("Cancelling with number " + event.getNumber());
 		event.setCancelled(true);
 	}
+
 }

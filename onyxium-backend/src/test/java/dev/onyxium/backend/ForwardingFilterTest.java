@@ -30,7 +30,8 @@ public class ForwardingFilterTest {
 
 	@Test
 	public void proxyProtocolMatchesTargetServer() {
-		assertTrue(ProtocolSettings.validateCrc(ProtocolVersion.CURRENT.crc()));
+		assertEquals(Integer.toUnsignedLong(ProtocolSettings.PROTOCOL_CRC), ProtocolVersion.CURRENT.crc());
+		assertTrue(ProtocolSettings.validateCrc((int) ProtocolVersion.CURRENT.crc()));
 		assertEquals(ProtocolSettings.PROTOCOL_BUILD_NUMBER, ProtocolVersion.CURRENT.buildNumber());
 	}
 

@@ -1,8 +1,8 @@
 package dev.onyxium.eventbus;
 
-import org.junit.Test;
-
 import static org.junit.Assert.assertTrue;
+
+import org.junit.Test;
 
 public class EventBusTest {
 
@@ -19,4 +19,5 @@ public class EventBusTest {
 
 		assertTrue(sampleEvent.isCancelled());
 	}
+
 }
