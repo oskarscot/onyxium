@@ -4,6 +4,15 @@ import module java.base;
 
 record RegisteredCommand(CommandDefinition definition, MethodHandle invocation) {
 
+	void invoke(Object[] arguments) {
+		try {
+			invocation.invokeExact(arguments);
+		}
+		catch (Throwable failure) {
+			throw new IllegalStateException("Failed to invoke command /" + definition.name(), failure);
+		}
+	}
+
 	static RegisteredCommand compile(Object handler, Method method, ArgumentParser parsers) {
 		validateSignature(method);
 

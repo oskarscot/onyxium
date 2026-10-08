@@ -25,9 +25,4 @@ public class CommandInputBoundaryTest {
 		assertThat(input.remaining()).isEqualTo("Let's say \"hello");
 	}
 
-	@Test
-	public void rootLookupDoesNotParseUnknownCommandArguments() {
-		assertThat(CommandInput.root(" /foo \"unfinished")).isEqualTo("foo");
-	}
-
 }

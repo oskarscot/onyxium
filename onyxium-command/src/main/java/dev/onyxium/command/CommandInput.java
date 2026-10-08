@@ -18,15 +18,19 @@ final class CommandInput {
 		}
 	}
 
-	static String root(String input) {
-		var cursor = new CommandInput(input);
-		var start = cursor.position;
-
-		while (cursor.position < input.length() && !Character.isWhitespace(input.charAt(cursor.position))) {
-			cursor.position++;
+	/// Literal lookup must not tokenize a greedy tail or an unknown backend command.
+	String literal() {
+		var start = position;
+		while (start < raw.length() && Character.isWhitespace(raw.charAt(start))) {
+			start++;
 		}
 
-		return input.substring(start, cursor.position);
+		var end = start;
+		while (end < raw.length() && !Character.isWhitespace(raw.charAt(end))) {
+			end++;
+		}
+
+		return raw.substring(start, end);
 	}
 
 	Token peek() {
