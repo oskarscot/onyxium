@@ -1,5 +1,6 @@
 package dev.onyxium.proxy.backend;
 
+import static org.assertj.core.api.Assertions.assertThat;
 import static org.junit.Assert.assertArrayEquals;
 import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertFalse;
@@ -44,8 +45,12 @@ import io.netty.handler.ssl.util.InsecureTrustManagerFactory;
 import org.junit.After;
 import org.junit.Test;
 
+import dev.onyxium.command.Command;
 import dev.onyxium.forwarding.ForwardingToken;
 import dev.onyxium.proxy.OnyxiumProxy;
+import dev.onyxium.proxy.api.command.ConsoleSource;
+import dev.onyxium.proxy.api.message.FormattedMessage;
+import dev.onyxium.proxy.api.player.Player;
 import dev.onyxium.proxy.auth.AuthenticatedProfile;
 import dev.onyxium.proxy.auth.AuthenticationService;
 import dev.onyxium.proxy.io.NettyNetworkManager;
@@ -59,6 +64,8 @@ import dev.onyxium.proxy.io.packet.auth.AuthGrant;
 import dev.onyxium.proxy.io.packet.auth.AuthToken;
 import dev.onyxium.proxy.io.packet.auth.Connect;
 import dev.onyxium.proxy.io.packet.auth.ServerAuthToken;
+import dev.onyxium.proxy.io.packet.chat.ChatMessage;
+import dev.onyxium.proxy.io.packet.chat.ServerMessage;
 import dev.onyxium.proxy.io.packet.connection.ServerDisconnect;
 import dev.onyxium.proxy.util.SelfSignedCertificate;
 
@@ -89,6 +96,8 @@ public class ForwardingIntegrationTest {
 	private final CompletableFuture<QuicChannel> rejectedUpstream = new CompletableFuture<>();
 
 	private NettyNetworkManager proxy;
+
+	OnyxiumProxy server;
 
 	@After
 	public void close() {
@@ -144,6 +153,35 @@ public class ForwardingIntegrationTest {
 		game.parent().close().sync();
 		assertTrue(server.closeFuture().await(10, TimeUnit.SECONDS));
 		assertFalse(server.isActive());
+	}
+
+	@Test
+	public void consumesProxyCommandsAndForwardsUnownedChat() throws Exception {
+		var game = start(false);
+		verified.get(10, TimeUnit.SECONDS);
+		assertThat(received.poll(10, TimeUnit.SECONDS)).isInstanceOf(ServerAuthToken.class);
+		assertThat(received.poll(10, TimeUnit.SECONDS)).isInstanceOf(UnknownPacket.class);
+
+		assertChatResponse(game, "/onyxium",
+				new ServerMessage(FormattedMessage.text("Onyxium proxy: 1 player(s) connected.")));
+		assertChatResponse(game, "/proxy players",
+				new ServerMessage(FormattedMessage.text("Online players (1): Oskar")));
+		assertChatResponse(game, "/probe player 7", new ServerMessage(FormattedMessage.text("Oskar: 7")));
+		assertChatResponse(game, "/probe console",
+				new ServerMessage(FormattedMessage.text("This command is not available to this source.")));
+		assertChatResponse(game, "/probe restricted",
+				new ServerMessage(FormattedMessage.text("You do not have permission to use this command.")));
+		assertChatResponse(game, "/onyxium players extra",
+				new ServerMessage(FormattedMessage.text("Too many arguments. Usage: /onyxium players")));
+
+		assertChatResponse(game, "onyxium", new ChatMessage("onyxium"));
+		assertChatResponse(game, " /onyxium", new ChatMessage(" /onyxium"));
+		assertChatResponse(game, "/backend \"unfinished", new ChatMessage("/backend \"unfinished"));
+	}
+
+	void assertChatResponse(QuicStreamChannel game, String input, Packet expected) throws Exception {
+		game.writeAndFlush(new ChatMessage(input)).sync();
+		assertThat(received.poll(10, TimeUnit.SECONDS)).isEqualTo(expected);
 	}
 
 	@Test
@@ -304,8 +342,10 @@ public class ForwardingIntegrationTest {
 					String server) {
 				return CompletableFuture.completedFuture("proxy-authenticated");
 			}
-		}, null, connector::connect);
-		new OnyxiumProxy(proxy).start();
+		}, null, player -> connector.connect(player, server.commandDispatcher()));
+		server = new OnyxiumProxy(proxy);
+		server.commandDispatcher().registerHandler(new PlayerCommands());
+		server.start();
 		var clientCertificate = SelfSignedCertificate.generate("Client Test");
 		var clientSsl = QuicSslContextBuilder.forClient()
 			.applicationProtocols("hytale/3")
@@ -380,6 +420,25 @@ public class ForwardingIntegrationTest {
 			.putInt(id)
 			.put(payload)
 			.array();
+	}
+
+	public static final class PlayerCommands {
+
+		@Command(name = "probe player")
+		public void player(Player source, int amount) {
+			source.sendMessage("%s: %d".formatted(source.username(), amount));
+		}
+
+		@Command(name = "probe console")
+		public void console(ConsoleSource source) {
+			source.sendMessage("Console only.");
+		}
+
+		@Command(name = "probe restricted", permission = "test.restricted")
+		public void restricted(Player source) {
+			source.sendMessage("Restricted.");
+		}
+
 	}
 
 }

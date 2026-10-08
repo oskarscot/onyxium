@@ -31,6 +31,7 @@ import io.netty.handler.ssl.util.InsecureTrustManagerFactory;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
+import dev.onyxium.command.CommandDispatcher;
 import dev.onyxium.forwarding.ForwardedIdentity;
 import dev.onyxium.forwarding.ForwardingToken;
 import dev.onyxium.proxy.api.message.FormattedMessage;
@@ -77,13 +78,13 @@ public final class BackendConnector {
 			.build();
 	}
 
-	public void connect(ProxyPlayer player) {
+	public void connect(ProxyPlayer player, CommandDispatcher commands) {
 		if (!(player.connection() instanceof HytaleProtocolConnection connection)) {
 			throw new IllegalArgumentException("Backend forwarding requires a QUIC connection");
 		}
 		if (!connection.eventLoop().inEventLoop())
 			throw new IllegalStateException("Not on connection event loop");
-		new Session(player, connection, 0).connect();
+		new Session(player, connection, commands, 0).connect();
 	}
 
 	private final class Session {
@@ -91,6 +92,8 @@ public final class BackendConnector {
 		private final ProxyPlayer player;
 
 		private final HytaleProtocolConnection client;
+
+		CommandDispatcher commands;
 
 		private final int index;
 
@@ -114,9 +117,10 @@ public final class BackendConnector {
 
 		private boolean closed;
 
-		Session(ProxyPlayer player, HytaleProtocolConnection client, int index) {
+		Session(ProxyPlayer player, HytaleProtocolConnection client, CommandDispatcher commands, int index) {
 			this.player = player;
 			this.client = client;
+			this.commands = commands;
 			this.index = index;
 			configuration = configurations.get(index);
 		}
@@ -283,7 +287,7 @@ public final class BackendConnector {
 				return;
 			LOGGER.debug("Backend connection for {}: {}", player, message);
 			if (!ready && client.active() && index + 1 < configurations.size()) {
-				var next = new Session(player, client, index + 1);
+				var next = new Session(player, client, commands, index + 1);
 				next.pendingClientStreams.addAll(pendingClientStreams);
 				pendingClientStreams.clear();
 				close();
@@ -339,7 +343,7 @@ public final class BackendConnector {
 					ready = true;
 					context.pipeline().get(PacketDecoder.class).authenticated();
 					timeout.cancel(false);
-					client.setPacketHandler(new ForwardingPacketHandler(client, game, Session.this::fail));
+					client.setPacketHandler(new ForwardingPacketHandler(player, commands, game, Session.this::fail));
 					client.onWritabilityChanged(() -> game.config().setAutoRead(client.gameStreamWritable()));
 					pendingServerStreams.forEach(stream -> bridge(stream, client.channel()));
 					pendingClientStreams.forEach(stream -> bridge(stream, backend));

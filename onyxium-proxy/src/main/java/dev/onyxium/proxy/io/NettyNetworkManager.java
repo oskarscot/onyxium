@@ -190,9 +190,10 @@ public final class NettyNetworkManager implements NetworkManager {
 			.initialMaxStreamDataUnidirectional(QuicTransportParameters.STREAM_BUFFER_SIZE)
 			.initialMaxStreamsBidirectional(QuicTransportParameters.MAX_CONCURRENT_BIDIRECTIONAL_STREAMS)
 			.initialMaxStreamsUnidirectional(QuicTransportParameters.MAX_CONCURRENT_UNIDIRECTIONAL_STREAMS)
-			.handler(new QuicConnectionInitializer(
-					new LoginContext(proxy, authentication, players, ProtocolVersion.CURRENT, password,
-							onAuthenticated == null ? backendConnector::connect : onAuthenticated)))
+			.handler(new QuicConnectionInitializer(new LoginContext(proxy, authentication, players,
+					ProtocolVersion.CURRENT, password,
+					onAuthenticated == null ? player -> backendConnector.connect(player, proxy.commandDispatcher())
+							: onAuthenticated)))
 			.streamHandler(new QuicStreamInitializer())
 			.build();
 	}
