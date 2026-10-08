@@ -5,6 +5,7 @@ public record ArgumentDefinition(String name, Class<?> type, boolean optional, b
 
 	public String usage() {
 		var value = name + (greedy ? "..." : "");
+
 		return optional ? "[" + value + "]" : "<" + value + ">";
 	}
 }

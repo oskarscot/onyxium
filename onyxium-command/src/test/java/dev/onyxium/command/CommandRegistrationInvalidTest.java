@@ -2,10 +2,7 @@ package dev.onyxium.command;
 
 import static org.assertj.core.api.Assertions.assertThatIllegalArgumentException;
 
-import java.nio.file.Path;
-import java.util.List;
-import java.util.Optional;
-
+import module java.base;
 import org.junit.Test;
 import org.junit.runner.RunWith;
 import org.junit.runners.Parameterized;
@@ -44,6 +41,7 @@ public class CommandRegistrationInvalidTest {
 	@Test
 	public void rejectsAmbiguousOrUnsupportedDeclarations() {
 		var dispatcher = new CommandDispatcher<>(Source.class, Source::hasPermission);
+
 		assertThatIllegalArgumentException().isThrownBy(() -> dispatcher.registerHandler(handler))
 			.withMessageContaining(message);
 	}

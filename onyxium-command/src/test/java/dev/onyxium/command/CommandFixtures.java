@@ -1,7 +1,6 @@
 package dev.onyxium.command;
 
-import java.util.List;
-import java.util.Set;
+import module java.base;
 
 public interface CommandFixtures {
 

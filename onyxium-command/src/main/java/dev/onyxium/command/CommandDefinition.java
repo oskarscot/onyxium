@@ -1,7 +1,6 @@
 package dev.onyxium.command;
 
-import java.util.List;
-import java.util.stream.Collectors;
+import module java.base;
 
 /// A canonical command path with leaf aliases, independent of its reflected method and transport.
 public record CommandDefinition(String name, List<String> aliases, String permission, String description,
@@ -13,9 +12,7 @@ public record CommandDefinition(String name, List<String> aliases, String permis
 	}
 
 	public String usage() {
-		return "/" + name
-				+ arguments.stream()
-					.map(ArgumentDefinition::usage)
-					.collect(Collectors.joining(" ", arguments.isEmpty() ? "" : " ", ""));
+		return Stream.concat(Stream.of("/" + name), arguments.stream().map(ArgumentDefinition::usage))
+				.collect(Collectors.joining(" "));
 	}
 }

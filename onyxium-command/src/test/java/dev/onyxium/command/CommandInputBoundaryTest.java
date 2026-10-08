@@ -12,6 +12,7 @@ public class CommandInputBoundaryTest {
 		input.read();
 		input.read();
 		input.peek();
+
 		assertThat(input.remaining()).isEqualTo("a  \"quoted value\" \\text  ");
 		assertThat(input.read()).isNull();
 	}
@@ -20,6 +21,7 @@ public class CommandInputBoundaryTest {
 	public void greedyTailDoesNotRequireBalancedQuotes() {
 		var input = new CommandInput("foo Let's say \"hello");
 		input.read();
+
 		assertThat(input.remaining()).isEqualTo("Let's say \"hello");
 	}
 

@@ -2,8 +2,7 @@ package dev.onyxium.command;
 
 import static org.assertj.core.api.Assertions.assertThatIllegalArgumentException;
 
-import java.util.List;
-
+import module java.base;
 import org.junit.Test;
 import org.junit.runner.RunWith;
 import org.junit.runners.Parameterized;
@@ -25,6 +24,7 @@ public class CommandInputMalformedTest {
 	@Test
 	public void rejectsIncompleteQuotedTokensAndEscapes() {
 		var command = new CommandInput(input);
+
 		assertThatIllegalArgumentException().isThrownBy(command::read);
 	}
 

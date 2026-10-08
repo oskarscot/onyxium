@@ -1,65 +1,60 @@
 package dev.onyxium.command;
 
-import java.util.HashMap;
-import java.util.IdentityHashMap;
-import java.util.List;
-import java.util.Map;
+import module java.base;
 
-/// Published trees are immutable; aliases share their canonical node and its descendants.
-record CommandTree<S>(Map<String, Node<S>> roots, List<RegisteredCommand<S>> commands) {
+/// Aliases share their canonical node and its descendants in the immutable tree.
+record CommandTree(Map<String, Node> roots, List<RegisteredCommand> commands) {
 
-	static <S> CommandTree<S> build(List<RegisteredCommand<S>> commands) {
-		var root = new MutableNode<S>();
+	static CommandTree build(List<RegisteredCommand> commands) {
+		var root = new MutableNode();
+
 		for (var command : commands) {
 			var node = root;
-			for (var segment : command.definition().name().split(" "))
-				node = node.child(segment);
-			if (node.command != null)
+			for (var segment : command.definition().name().split(" ")) {
+				node = node.children.computeIfAbsent(segment, _ -> new MutableNode());
+			}
+
+			if (node.command != null) {
 				throw new IllegalArgumentException("Duplicate command: " + command.definition().name());
+			}
+
 			node.command = command;
 		}
-		for (var command : commands)
-			addAliases(root, command);
-		return new CommandTree<>(root.freeze(new IdentityHashMap<>()).children(), List.copyOf(commands));
+
+		return new CommandTree(root.freeze().children(), List.copyOf(commands));
 	}
 
-	static <S> void addAliases(MutableNode<S> root, RegisteredCommand<S> command) {
-		var path = command.definition().name().split(" ");
-		var parent = root;
-		for (var index = 0; index < path.length - 1; index++)
-			parent = parent.children.get(path[index]);
-		var target = parent.children.get(path[path.length - 1]);
-		for (var alias : command.definition().aliases()) {
-			if (parent.children.putIfAbsent(alias, target) != null) {
-				throw new IllegalArgumentException(
-						"Conflicting alias '" + alias + "' for " + command.definition().name());
+	record Node(Map<String, Node> children, RegisteredCommand command) {
+	}
+
+	static final class MutableNode {
+
+		Map<String, MutableNode> children = new HashMap<>();
+
+		RegisteredCommand command;
+
+		Node freeze() {
+			var frozen = new HashMap<String, Node>();
+
+			for (var entry : children.entrySet()) {
+				var child = entry.getValue().freeze();
+				add(frozen, entry.getKey(), child);
+
+				if (child.command() != null) {
+					for (var alias : child.command().definition().aliases()) {
+						add(frozen, alias, child);
+					}
+				}
 			}
-		}
-	}
 
-	record Node<S>(Map<String, Node<S>> children, RegisteredCommand<S> command) {
-	}
-
-	static final class MutableNode<S> {
-
-		Map<String, MutableNode<S>> children = new HashMap<>();
-
-		RegisteredCommand<S> command;
-
-		MutableNode<S> child(String name) {
-			return children.computeIfAbsent(name, _ -> new MutableNode<>());
+			return new Node(Map.copyOf(frozen), command);
 		}
 
-		Node<S> freeze(IdentityHashMap<MutableNode<S>, Node<S>> memo) {
-			var cached = memo.get(this);
-			if (cached != null)
-				return cached;
-			var frozen = new HashMap<String, Node<S>>();
-			for (var entry : children.entrySet())
-				frozen.put(entry.getKey(), entry.getValue().freeze(memo));
-			var result = new Node<>(Map.copyOf(frozen), command);
-			memo.put(this, result);
-			return result;
+		static void add(Map<String, Node> children, String name, Node child) {
+			var previous = children.putIfAbsent(name, child);
+			if (previous != null) {
+				throw new IllegalArgumentException("Conflicting command name or alias: " + name);
+			}
 		}
 
 	}

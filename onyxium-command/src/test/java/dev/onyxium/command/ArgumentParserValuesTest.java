@@ -38,6 +38,7 @@ public class ArgumentParserValuesTest {
 	@Test
 	public void convertsPrimitiveBoxedAndEnumValues() {
 		var parser = new ArgumentParser();
+
 		assertThat(parser.parse(input, type)).isEqualTo(expected);
 	}
 

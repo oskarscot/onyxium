@@ -3,13 +3,23 @@ package dev.onyxium.command;
 import module java.base;
 
 /// Primitive targets return boxed values. Enums and booleans ignore case; floating-point values
-/// must be finite. Register custom converters before registering handlers that use them.
+/// must be finite. Register converters before concurrent use and before handlers that need them.
 public final class ArgumentParser {
 
-	Map<Class<?>, Function<String, ?>> converters = new ConcurrentHashMap<>(Map.<Class<?>, Function<String, ?>>of(
-			String.class, Function.identity(), Byte.class, Byte::valueOf, Short.class, Short::valueOf, Integer.class,
-			Integer::valueOf, Long.class, Long::valueOf, Float.class, Float::valueOf, Double.class, Double::valueOf,
-			Boolean.class, Boolean::valueOf, Character.class, input -> input.charAt(0), UUID.class, UUID::fromString));
+	Map<Class<?>, Function<String, ?>> converters = new HashMap<>();
+
+	public ArgumentParser() {
+		converters.put(String.class, Function.identity());
+		converters.put(Byte.class, Byte::valueOf);
+		converters.put(Short.class, Short::valueOf);
+		converters.put(Integer.class, Integer::valueOf);
+		converters.put(Long.class, Long::valueOf);
+		converters.put(Float.class, Float::valueOf);
+		converters.put(Double.class, Double::valueOf);
+		converters.put(Boolean.class, Boolean::valueOf);
+		converters.put(Character.class, input -> input.charAt(0));
+		converters.put(UUID.class, UUID::fromString);
+	}
 
 	public <T> T parse(String input, Class<T> targetType) {
 		return parse(input, targetType, () -> new IllegalArgumentException(
@@ -24,9 +34,12 @@ public final class ArgumentParser {
 		Objects.requireNonNull(input, "input");
 		Objects.requireNonNull(targetType, "targetType");
 		Objects.requireNonNull(exceptionSupplier, "exceptionSupplier");
+
 		var type = boxed(targetType);
-		if (!supports(type) || type == Character.class && input.length() != 1)
+		if (!supports(type) || type == Character.class && input.length() != 1) {
 			throw exceptionSupplier.get();
+		}
+
 		Object value;
 		try {
 			value = type.isEnum() ? enumValue(input, type) : converters.get(type).apply(input);
@@ -34,11 +47,16 @@ public final class ArgumentParser {
 		catch (IllegalArgumentException _) {
 			throw exceptionSupplier.get();
 		}
-		if (!type.isInstance(value))
+
+		if (!type.isInstance(value)) {
 			throw new IllegalStateException(
 					"Converter for %s returned a null or incompatible value.".formatted(type.getTypeName()));
-		if (!valid(input, value))
+		}
+
+		if (!valid(input, value)) {
 			throw exceptionSupplier.get();
+		}
+
 		// Class.cast rejects boxed values when the target is a primitive class.
 		return (T) value;
 	}
@@ -48,17 +66,24 @@ public final class ArgumentParser {
 	public <T> void register(Class<T> targetType, Function<String, T> converter) {
 		var type = boxed(Objects.requireNonNull(targetType, "targetType"));
 		Objects.requireNonNull(converter, "converter");
-		if (type.isEnum())
+
+		if (type.isEnum()) {
 			throw new IllegalArgumentException("Enums already have a built-in converter.");
+		}
+
 		var existing = converters.putIfAbsent(type, converter);
-		if (existing != null)
+		if (existing != null) {
 			throw new IllegalArgumentException("An argument parser already exists for " + targetType.getTypeName());
+		}
 	}
 
 	public List<String> suggestions(Class<?> targetType) {
 		var type = boxed(Objects.requireNonNull(targetType, "targetType"));
-		if (type == Boolean.class)
+
+		if (type == Boolean.class) {
 			return List.of("true", "false");
+		}
+
 		return type.isEnum() ? enumValues(type).map(Enum::name).toList() : List.of();
 	}
 

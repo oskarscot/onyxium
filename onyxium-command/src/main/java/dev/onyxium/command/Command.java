@@ -1,9 +1,6 @@
 package dev.onyxium.command;
 
-import java.lang.annotation.ElementType;
-import java.lang.annotation.Retention;
-import java.lang.annotation.RetentionPolicy;
-import java.lang.annotation.Target;
+import module java.base;
 
 /// Marks a public instance method returning void. Its first parameter is the source;
 /// remaining parameter names become argument names and require compilation with `-parameters`.

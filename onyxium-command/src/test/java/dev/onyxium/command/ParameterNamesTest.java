@@ -3,11 +3,9 @@ package dev.onyxium.command;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatIllegalArgumentException;
 
-import java.net.URLClassLoader;
-import java.nio.file.Files;
-
 import javax.tools.ToolProvider;
 
+import module java.base;
 import org.junit.Rule;
 import org.junit.Test;
 import org.junit.rules.TemporaryFolder;
@@ -29,10 +27,11 @@ public class ParameterNamesTest {
 				}
 				""");
 		var classpath = Command.class.getProtectionDomain().getCodeSource().getLocation().toURI().getPath();
+
 		assertThat(ToolProvider.getSystemJavaCompiler()
 			.run(null, null, null, "-classpath", classpath, "-d", directory.toString(), source.toString()))
 			.isEqualTo(0);
-		try (var loader = new URLClassLoader(new java.net.URL[] { directory.toUri().toURL() },
+		try (var loader = new URLClassLoader(new URL[] { directory.toUri().toURL() },
 				Command.class.getClassLoader())) {
 			var handler = loader.loadClass("UnnamedHandler").getConstructor().newInstance();
 			var dispatcher = new CommandDispatcher<>(String.class, (_, _) -> true);
