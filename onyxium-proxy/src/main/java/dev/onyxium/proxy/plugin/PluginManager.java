@@ -3,6 +3,7 @@ package dev.onyxium.proxy.plugin;
 import module java.base;
 import org.jetbrains.annotations.ApiStatus;
 
+import dev.onyxium.proxy.api.ProxyServer;
 import dev.onyxium.proxy.api.plugin.Plugin;
 import dev.onyxium.proxy.api.plugin.PluginManifest;
 import dev.onyxium.proxy.api.plugin.PluginService;
@@ -12,6 +13,8 @@ import dev.onyxium.proxy.lifecycle.LifecycleException;
 @ApiStatus.Internal
 public final class PluginManager implements PluginService, Lifecycle {
 
+	ProxyServer proxy;
+
 	Path pluginsDirectory;
 
 	Map<String, Registration> registrations = new LinkedHashMap<>();
@@ -20,11 +23,12 @@ public final class PluginManager implements PluginService, Lifecycle {
 
 	Phase phase = Phase.REGISTERING;
 
-	public PluginManager() {
-		this(Path.of("plugins"));
+	public PluginManager(ProxyServer proxy) {
+		this(proxy, Path.of("plugins"));
 	}
 
-	public PluginManager(Path pluginsDirectory) {
+	public PluginManager(ProxyServer proxy, Path pluginsDirectory) {
+		this.proxy = Objects.requireNonNull(proxy, "proxy");
 		this.pluginsDirectory = Objects.requireNonNull(pluginsDirectory, "pluginsDirectory").toAbsolutePath().normalize();
 	}
 
@@ -84,7 +88,9 @@ public final class PluginManager implements PluginService, Lifecycle {
 		return loadedRegistration(id).filter(registration -> registration.enabled).isPresent();
 	}
 
-	/// Validates dependencies, calls every load callback in dependency order, then
+	/// Discovers JAR manifests in the plugins directory, validates dependencies, and
+	/// constructs entry classes with the proxy API using one loader per JAR. Calls every
+	/// load callback in dependency order, then
 	/// enables every plugin in that order. No enable callback runs before all loads finish.
 	/// The proxy starts its network listener only after this method succeeds.
 	///
@@ -97,9 +103,10 @@ public final class PluginManager implements PluginService, Lifecycle {
 	@Override
 	public void start() {
 		requirePhase(Phase.REGISTERING);
-		loadOrder = resolveOrder();
 		phase = Phase.TRANSITIONING;
 		try {
+			discover();
+			loadOrder = resolveOrder();
 			for (var registration : loadOrder) {
 				load(registration);
 			}
@@ -119,6 +126,33 @@ public final class PluginManager implements PluginService, Lifecycle {
 			phase = Phase.STOPPED;
 			throw startupFailure;
 		}
+	}
+
+	void discover() {
+		List<PluginJar> jars;
+		try {
+			Files.createDirectories(pluginsDirectory);
+			try (var paths = Files.list(pluginsDirectory)) {
+				jars = paths.filter(Files::isRegularFile).filter(PluginManager::isJar).sorted().map(PluginJar::read).toList();
+			}
+		}
+		catch (IOException | UncheckedIOException failure) {
+			throw new LifecycleException("Could not discover plugins in " + pluginsDirectory, failure);
+		}
+		var ids = new HashSet<>(registrations.keySet());
+		for (var jar : jars) {
+			var added = ids.add(jar.manifest().id());
+			if (!added) {
+				throw new LifecycleException("Duplicate plugin ID '" + jar.manifest().id() + "' in " + jar.path());
+			}
+		}
+		for (var jar : jars) {
+			registrations.put(jar.manifest().id(), new Registration(jar, pluginsDirectory.resolve(jar.manifest().id())));
+		}
+	}
+
+	static boolean isJar(Path path) {
+		return path.getFileName().toString().toLowerCase(Locale.ROOT).endsWith(".jar");
 	}
 
 	@Override
@@ -236,8 +270,14 @@ public final class PluginManager implements PluginService, Lifecycle {
 	void load(Registration registration) {
 		try {
 			Files.createDirectories(registration.dataDirectory);
+			if (registration.jar != null) {
+				var dependencies = registration.manifest.dependencies().stream()
+					.map(id -> registrations.get(id).classLoader).filter(Objects::nonNull).toList();
+				registration.classLoader = new PluginClassLoader(registration.jar, dependencies);
+				registration.plugin = registration.classLoader.instantiate(proxy);
+			}
 			registration.needsCleanup = true;
-			registration.plugin.load();
+			invoke(registration, registration.plugin::load);
 			registration.loaded = true;
 		}
 		catch (IOException failure) {
@@ -251,7 +291,7 @@ public final class PluginManager implements PluginService, Lifecycle {
 	void enable(Registration registration) {
 		registration.needsCleanup = true;
 		try {
-			registration.plugin.enable();
+			invoke(registration, registration.plugin::enable);
 			registration.enabled = true;
 		}
 		catch (RuntimeException | Error failure) {
@@ -272,10 +312,26 @@ public final class PluginManager implements PluginService, Lifecycle {
 			return;
 		}
 		try {
-			registration.plugin.disable();
+			invoke(registration, registration.plugin::disable);
 		}
 		finally {
 			registration.needsCleanup = false;
+		}
+	}
+
+	/// Plugin SPI discovery must use its own loader, and a callback must not leave
+	/// the caller's thread attached to that loader after returning or throwing.
+	void invoke(Registration registration, Runnable callback) {
+		var thread = Thread.currentThread();
+		var previous = thread.getContextClassLoader();
+		if (registration.classLoader != null) {
+			thread.setContextClassLoader(registration.classLoader);
+		}
+		try {
+			callback.run();
+		}
+		finally {
+			thread.setContextClassLoader(previous);
 		}
 	}
 
@@ -290,10 +346,23 @@ public final class PluginManager implements PluginService, Lifecycle {
 			}
 			finally {
 				registration.loaded = false;
+				closeLoader(registration, shutdownFailure);
 			}
 		}
 		if (shutdownFailure.getSuppressed().length != 0) {
 			throw shutdownFailure;
+		}
+	}
+
+	void closeLoader(Registration registration, LifecycleException shutdownFailure) {
+		if (registration.classLoader == null) {
+			return;
+		}
+		try {
+			registration.classLoader.close();
+		}
+		catch (IOException failure) {
+			shutdownFailure.addSuppressed(new LifecycleException("Could not close class loader for plugin '" + registration.manifest.id() + "'", failure));
 		}
 	}
 
@@ -323,6 +392,10 @@ public final class PluginManager implements PluginService, Lifecycle {
 
 		Path dataDirectory;
 
+		PluginJar jar;
+
+		PluginClassLoader classLoader;
+
 		boolean loaded;
 
 		boolean enabled;
@@ -332,6 +405,12 @@ public final class PluginManager implements PluginService, Lifecycle {
 		Registration(PluginManifest manifest, Plugin plugin, Path dataDirectory) {
 			this.manifest = manifest;
 			this.plugin = plugin;
+			this.dataDirectory = dataDirectory;
+		}
+
+		Registration(PluginJar jar, Path dataDirectory) {
+			this.manifest = jar.manifest();
+			this.jar = jar;
 			this.dataDirectory = dataDirectory;
 		}
 

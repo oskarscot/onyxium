@@ -36,13 +36,13 @@ public class PluginDependencyValidationTest {
 
 	@Test
 	public void invalidDependencyGraphFailsBeforeAnyCallback() {
-		var manager = new PluginManager(pluginsDirectory.getRoot().toPath());
 		var proxy = mock(ProxyServer.class);
+		var manager = new PluginManager(proxy, pluginsDirectory.getRoot().toPath());
 		var callbacks = new ArrayList<String>();
 		manager.register(PluginProbe.manifest("core", "addon"), new PluginProbe(proxy, "core", callbacks));
 		manager.register(PluginProbe.manifest("addon", dependency), new PluginProbe(proxy, "addon", callbacks));
 
-		assertThatThrownBy(manager::start).isInstanceOf(LifecycleException.class).hasMessage(message);
+		assertThatThrownBy(manager::start).isInstanceOf(LifecycleException.class).hasMessage("Plugin startup failed: " + message);
 
 		assertThat(callbacks).isEmpty();
 		assertThat(manager.plugins()).isEmpty();

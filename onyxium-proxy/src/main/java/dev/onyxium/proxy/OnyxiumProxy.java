@@ -28,7 +28,7 @@ public final class OnyxiumProxy implements ProxyServer, Lifecycle {
 
 	ProxyConsole console = new ProxyConsole(commandDispatcher);
 
-	PluginManager pluginManager = new PluginManager();
+	PluginManager pluginManager = new PluginManager(this);
 
 	public OnyxiumProxy(@NotNull NettyNetworkManager networkManager) {
 		this.networkManager = Objects.requireNonNull(networkManager, "networkManager");

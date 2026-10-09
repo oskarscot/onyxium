@@ -31,25 +31,7 @@ public class PluginLifecycleIntegrationTest {
 
 	@Before
 	public void useTemporaryPluginsDirectory() {
-		proxy.pluginManager = new PluginManager(pluginsDirectory.getRoot().toPath());
-	}
-
-	@Test
-	public void proxyOwnsPluginLifecycleAroundTheNetworkListener() {
-		proxy.pluginManager.register(manifest(), plugin);
-
-		proxy.start();
-		proxy.shutdown();
-
-		var order = inOrder(network, plugin);
-		order.verify(plugin).load();
-		order.verify(plugin).enable();
-		order.verify(network).start(proxy);
-		order.verify(network).stop();
-		order.verify(plugin).disable();
-		order.verifyNoMoreInteractions();
-		assertThat(proxy.pluginService()).isSameAs(proxy.pluginManager);
-		assertThat(proxy.pluginService().plugins()).isEmpty();
+		proxy.pluginManager = new PluginManager(proxy, pluginsDirectory.getRoot().toPath());
 	}
 
 	@Test

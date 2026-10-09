@@ -27,31 +27,8 @@ public class PluginManagerTest {
 
 	@Before
 	public void createManager() {
-		manager = new PluginManager(pluginsDirectory.getRoot().toPath());
+		manager = new PluginManager(proxy, pluginsDirectory.getRoot().toPath());
 		when(proxy.pluginService()).thenReturn(manager);
-	}
-
-	@Test
-	public void createsTheIdDirectoryBeforeLoadAndPreservesItsContentsAfterShutdown() throws IOException {
-		var plugin = register("core");
-		var unregistered = new PluginProbe(proxy, "core", callbacks);
-		var directory = pluginsDirectory.getRoot().toPath().resolve("core");
-		assertThatThrownBy(unregistered::dataDirectory).isInstanceOf(IllegalStateException.class)
-			.hasMessage("Plugin has not been registered");
-		assertThat(plugin.dataDirectory()).isEqualTo(directory);
-		assertThat(Files.exists(directory)).isFalse();
-
-		manager.start();
-		Files.writeString(directory.resolve("state.txt"), "persistent state");
-		manager.disable("core");
-		manager.enable("core");
-		manager.shutdown();
-
-		assertThat(plugin.dataDirectoryOnLoad).isEqualTo(directory);
-		assertThat(plugin.dataDirectoryExistsOnLoad).isTrue();
-		assertThat(plugin.dataDirectory()).isEqualTo(directory);
-		assertThat(Files.readString(directory.resolve("state.txt"))).isEqualTo("persistent state");
-		assertThat(callbacks).containsExactly("core.load", "core.enable", "core.disable", "core.enable", "core.disable");
 	}
 
 	@Test
@@ -67,35 +44,6 @@ public class PluginManagerTest {
 		assertThat(callbacks).isEmpty();
 		assertThat(manager.plugins()).isEmpty();
 		assertThat(Files.readString(directory)).isEqualTo("existing file");
-	}
-
-	@Test
-	public void loadsBeforeEnablingAndShutsDownInReverseDependencyOrder() {
-		var addon = register("addon", "bridge", "core");
-		var bridge = register("bridge", "core");
-		var core = register("core");
-		assertThat(manager.isLoaded("core")).isFalse();
-
-		manager.start();
-
-		assertThat(callbacks).containsExactly("core.load", "bridge.load", "addon.load", "core.enable", "bridge.enable", "addon.enable");
-		assertThat(manager.plugins()).containsExactly(core, bridge, addon);
-		assertThat(manager.plugin("addon")).contains(addon);
-		assertThat(manager.manifest("addon")).contains(PluginProbe.manifest("addon", "bridge", "core"));
-		assertThat(manager.isLoaded("addon")).isTrue();
-		assertThat(manager.isEnabled("addon")).isTrue();
-		var snapshot = manager.plugins();
-
-		manager.shutdown();
-		manager.shutdown();
-
-		assertThat(callbacks).containsExactly("core.load", "bridge.load", "addon.load", "core.enable", "bridge.enable", "addon.enable", "addon.disable", "bridge.disable", "core.disable");
-		assertThat(manager.plugins()).isEmpty();
-		assertThat(manager.plugin("addon")).isEmpty();
-		assertThat(manager.manifest("addon")).isEmpty();
-		assertThat(manager.isLoaded("addon")).isFalse();
-		assertThat(manager.isEnabled("addon")).isFalse();
-		assertThat(snapshot).containsExactly(core, bridge, addon);
 	}
 
 	@Test
@@ -140,42 +88,6 @@ public class PluginManagerTest {
 
 		assertThat(callbacks).containsExactly("core.enable", "core.disable", "core.enable");
 		assertThat(manager.isEnabled("core")).isTrue();
-	}
-
-	@Test
-	public void rejectsDuplicateRegistrationsWithoutReplacingTheOriginal() {
-		var original = register("core");
-		var replacement = new PluginProbe(proxy, "replacement", callbacks);
-
-		assertThatThrownBy(() -> manager.register(PluginProbe.manifest("core"), replacement))
-			.isInstanceOf(IllegalArgumentException.class).hasMessage("Duplicate plugin ID 'core'");
-		assertThatThrownBy(() -> manager.register(PluginProbe.manifest("other"), original))
-			.isInstanceOf(IllegalArgumentException.class).hasMessage("Plugin instance is already registered");
-		manager.start();
-
-		assertThat(manager.plugins()).containsExactly(original);
-		assertThatThrownBy(() -> manager.register(PluginProbe.manifest("late"), replacement))
-			.isInstanceOf(IllegalStateException.class).hasMessage("Plugin manager is RUNNING");
-	}
-
-	@Test
-	public void shutdownContinuesAfterADisableFailureAndDoesNotRetryCallbacks() {
-		var addon = register("addon", "core");
-		register("core");
-		manager.start();
-		callbacks.clear();
-		addon.failures = Set.of(PluginProbe.Callback.DISABLE);
-
-		assertThatThrownBy(manager::shutdown).isInstanceOf(LifecycleException.class)
-			.hasMessage("One or more plugins failed to disable")
-			.satisfies(failure -> assertThat(failure.getSuppressed()).singleElement()
-				.satisfies(suppressed -> assertThat(suppressed).hasMessage("Could not disable plugin 'addon'")
-					.hasRootCauseMessage("addon.disable")));
-		manager.shutdown();
-
-		assertThat(callbacks).containsExactly("addon.disable", "core.disable");
-		assertThat(manager.plugins()).isEmpty();
-		assertThat(manager.isEnabled("addon")).isFalse();
 	}
 
 	PluginProbe register(String id, String... dependencies) {

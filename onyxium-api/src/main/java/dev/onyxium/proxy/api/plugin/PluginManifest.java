@@ -2,9 +2,9 @@ package dev.onyxium.proxy.api.plugin;
 
 import module java.base;
 
-/// Metadata used to identify a plugin and determine its startup order. The planned
-/// JAR loader will read these fields from a root `onyxium.json` resource; currently
-/// proxy internals supply this record alongside an already constructed [Plugin].
+/// Metadata read from a plugin JAR's root `onyxium.json` resource to identify its
+/// entry class, authors, and startup order. Proxy internals can also register this
+/// record alongside an already constructed [Plugin].
 ///
 /// Dependencies are required plugin IDs. Their load and enable callbacks run before
 /// this plugin's corresponding callbacks, and their cleanup runs afterward. Missing

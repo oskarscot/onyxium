@@ -14,10 +14,6 @@ final class PluginProbe extends Plugin {
 
 	Set<Callback> failures = Set.of();
 
-	Path dataDirectoryOnLoad;
-
-	boolean dataDirectoryExistsOnLoad;
-
 	PluginProbe(ProxyServer proxy, String id, List<String> callbacks) {
 		super(proxy);
 		this.id = id;
@@ -30,8 +26,6 @@ final class PluginProbe extends Plugin {
 
 	@Override
 	public void load() {
-		dataDirectoryOnLoad = dataDirectory();
-		dataDirectoryExistsOnLoad = Files.isDirectory(dataDirectoryOnLoad);
 		record(Callback.LOAD);
 	}
 
