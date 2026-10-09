@@ -42,19 +42,17 @@ public final class ProxyCommands {
 	}
 
 	@Command(name = "onyxium kick", description = "Kicks the target player from the proxy")
-	public void kick(Player source, String username, @Greedy Optional<String> reason) {
-		var target = proxy.player(username);
-		if(target.isEmpty()) {
+	public void kick(Player source, Player target, @Greedy Optional<String> reason) {
+		if(target == null) {
 			source.sendMessage(FormattedMessage.builder()
-					.text("Player " + username + " is not online.")
+					.text("This player is not online.")
 					.color("#ff5555")
 					.build()
 			);
 			return;
 		}
 
-		var player = target.get();
-		player.disconnect(FormattedMessage.builder()
+		target.disconnect(FormattedMessage.builder()
 				.text("You have been kicked from the proxy: ")
 				.color("#777777")
 				.append(reason.orElse("No reason provided."))

@@ -34,7 +34,13 @@ public final class OnyxiumProxy implements ProxyServer, Lifecycle {
 
 	public OnyxiumProxy(@NotNull NettyNetworkManager networkManager) {
 		this.networkManager = Objects.requireNonNull(networkManager, "networkManager");
-		commandDispatcher.registerHandler(new ProxyCommands(this));
+
+		this.commandDispatcher.argumentParser()
+			.register(Player.class, (string) ->
+				this.networkManager.players().player(string).orElse(null)
+			);
+
+		this.commandDispatcher.registerHandler(new ProxyCommands(this));
 	}
 
 	@Override
