@@ -1,56 +1,76 @@
 package dev.onyxium.proxy.auth;
 
-import java.io.IOException;
-import java.net.URI;
-import java.net.URLEncoder;
-import java.net.http.HttpClient;
-import java.net.http.HttpRequest;
-import java.net.http.HttpResponse;
-import java.nio.charset.StandardCharsets;
-import java.text.ParseException;
-import java.time.Clock;
-import java.time.Duration;
-import java.util.ArrayList;
-import java.util.List;
-import java.util.Map;
-import java.util.UUID;
-import java.util.function.Consumer;
-import java.util.function.Function;
-import java.util.stream.Collectors;
-
 import com.nimbusds.jose.util.JSONObjectUtils;
+import module java.base;
+import module java.net.http;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 public final class HytaleDeviceLogin implements AutoCloseable {
 
-	private final URI oauth;
+	private static final Logger LOGGER = LoggerFactory.getLogger(HytaleDeviceLogin.class);
 
-	private final URI accounts;
+	URI oauth;
 
-	private final URI sessions;
+	URI accounts;
 
-	private final Clock clock;
+	URI sessions;
 
-	private final Sleeper sleeper;
+	Clock clock;
 
-	private final HttpClient client = HttpClient.newBuilder()
+	Sleeper sleeper;
+
+	Path credentialsFile;
+
+	HttpClient client = HttpClient.newBuilder()
 		.connectTimeout(Duration.ofSeconds(10))
 		.followRedirects(HttpClient.Redirect.NEVER)
 		.build();
 
-	public HytaleDeviceLogin() {
+	public HytaleDeviceLogin(Path credentialsFile) {
 		this(URI.create("https://oauth.accounts.hytale.com"), URI.create("https://account-data.hytale.com"),
-				AuthConfiguration.SESSION_SERVICE, Clock.systemUTC(), Thread::sleep);
+				AuthConfiguration.SESSION_SERVICE, Clock.systemUTC(), Thread::sleep, credentialsFile);
 	}
 
-	HytaleDeviceLogin(URI oauth, URI accounts, URI sessions, Clock clock, Sleeper sleeper) {
+	HytaleDeviceLogin(URI oauth, URI accounts, URI sessions, Clock clock, Sleeper sleeper, Path credentialsFile) {
 		this.oauth = oauth;
 		this.accounts = accounts;
 		this.sessions = sessions;
 		this.clock = clock;
 		this.sleeper = sleeper;
+		this.credentialsFile = credentialsFile;
 	}
 
 	public AuthConfiguration login(Consumer<DevicePrompt> prompt, Function<List<GameProfile>, UUID> selectProfile) {
+		var saved = StoredLogin.load(credentialsFile);
+		if (saved.isPresent()) {
+			var previous = saved.get();
+			var token = form("/oauth2/token", Map.of("client_id", "hytale-server", "grant_type", "refresh_token",
+					"refresh_token", previous.refreshToken()), true);
+			if (!token.containsKey("error")) {
+				var refresh = token.containsKey("refresh_token") ? string(token, "refresh_token") : previous.refreshToken();
+				var renewed = new StoredLogin(refresh, previous.profile());
+
+				// Refresh tokens rotate: persist the replacement before any later request can fail.
+				renewed.save(credentialsFile);
+				LOGGER.info("Restoring saved Hytale login");
+				return createSession(string(token, "access_token"), renewed, selectProfile);
+			}
+
+			if (!string(token, "error").equals("invalid_grant")) {
+				throw new AuthenticationException("Hytale OAuth token refresh failed");
+			}
+
+			LOGGER.info("Saved Hytale login expired or was revoked; device login is required");
+		}
+
+		var token = authorize(prompt);
+		var login = new StoredLogin(string(token, "refresh_token"), null);
+		login.save(credentialsFile);
+		return createSession(string(token, "access_token"), login, selectProfile);
+	}
+
+	Map<String, Object> authorize(Consumer<DevicePrompt> prompt) {
 		var device = form("/oauth2/device/auth",
 				Map.of("client_id", "hytale-server", "scope", "openid offline auth:server"), false);
 		var code = string(device, "device_code");
@@ -58,16 +78,20 @@ public final class HytaleDeviceLogin implements AutoCloseable {
 		var interval = Math.max(15, seconds(device, "interval", 5));
 		var deadline = clock.instant().plusSeconds(expires);
 		prompt.accept(new DevicePrompt(string(device, "user_code"), string(device, "verification_uri"), expires));
+
 		while (clock.instant().isBefore(deadline)) {
 			try {
 				sleeper.sleep(Duration.ofSeconds(interval));
 			}
-			catch (InterruptedException exception) {
+			catch (InterruptedException _) {
 				Thread.currentThread().interrupt();
 				throw new AuthenticationException("Hytale device login interrupted");
 			}
-			if (!clock.instant().isBefore(deadline))
+
+			if (!clock.instant().isBefore(deadline)) {
 				break;
+			}
+
 			var token = form("/oauth2/token", Map.of("client_id", "hytale-server", "grant_type",
 					"urn:ietf:params:oauth:grant-type:device_code", "device_code", code), true);
 			if (token.containsKey("error")) {
@@ -85,97 +109,124 @@ public final class HytaleDeviceLogin implements AutoCloseable {
 					default -> throw new AuthenticationException("Hytale device login failed");
 				}
 			}
-			return createSession(string(token, "access_token"), selectProfile);
+
+			return token;
 		}
+
 		throw new AuthenticationException("Hytale device login expired; restart to try again");
 	}
 
-	// TODO: store the credentials so we dont have to re-auth every time
-	private AuthConfiguration createSession(String accessToken, Function<List<GameProfile>, UUID> selectProfile) {
+	AuthConfiguration createSession(String accessToken, StoredLogin saved, Function<List<GameProfile>, UUID> selectProfile) {
 		var response = request(HttpRequest.newBuilder(accounts.resolve("/my-account/get-profiles"))
 			.header("Authorization", "Bearer " + accessToken), false);
 		if (!(response.get("profiles") instanceof List<?> entries) || entries.isEmpty()) {
 			throw new AuthenticationException("No Hytale game profiles are available for this account");
 		}
+
 		var profiles = new ArrayList<GameProfile>();
 		for (var entry : entries) {
-			if (!(entry instanceof Map<?, ?> profile))
+			if (!(entry instanceof Map<?, ?> profile)) {
 				throw invalidResponse();
+			}
+
 			try {
 				var uuid = UUID.fromString(string(profile, "uuid"));
 				var username = string(profile, "username");
-				if (!username.matches("[A-Za-z0-9_]{1,16}"))
+				if (!username.matches("[A-Za-z0-9_]{1,16}")) {
 					throw invalidResponse();
+				}
+
 				profiles.add(new GameProfile(uuid, username));
 			}
-			catch (IllegalArgumentException exception) {
+			catch (IllegalArgumentException _) {
 				throw invalidResponse();
 			}
 		}
-		var profile = profiles.size() == 1 ? profiles.getFirst().uuid() : selectProfile.apply(List.copyOf(profiles));
-		if (profiles.stream().noneMatch(candidate -> candidate.uuid().equals(profile))) {
-			throw new AuthenticationException("Select one of the Hytale profiles shown in the console");
+
+		var profile = selectedProfile(profiles, saved.profile(), selectProfile);
+		if (!profile.equals(saved.profile())) {
+			new StoredLogin(saved.refreshToken(), profile).save(credentialsFile);
 		}
+
 		try (var service = new SessionServiceClient(sessions)) {
 			var session = service.createSession(accessToken, profile);
 			var credentials = new AuthConfiguration(sessions, UUID.randomUUID().toString(),
 					string(session, "sessionToken"), string(session, "identityToken"));
 			var validator = new JwtValidator(sessions.toString(), credentials.audience(), service::jwks, clock);
 			var expiry = validator.validateServerIdentity(credentials.identityToken());
-			if (!clock.instant().isBefore(expiry))
+			if (!clock.instant().isBefore(expiry)) {
 				throw new AuthenticationException("Hytale returned an expired server session");
+			}
+
 			return credentials;
 		}
 	}
 
-	private Map<String, Object> form(String path, Map<String, String> values, boolean polling) {
+	static UUID selectedProfile(List<GameProfile> profiles, UUID previous, Function<List<GameProfile>, UUID> selectProfile) {
+		if (previous != null && profiles.stream().map(GameProfile::uuid).anyMatch(previous::equals)) {
+			return previous;
+		}
+
+		var selected = profiles.size() == 1 ? profiles.getFirst().uuid() : selectProfile.apply(List.copyOf(profiles));
+		if (profiles.stream().map(GameProfile::uuid).noneMatch(profile -> profile.equals(selected))) {
+			throw new AuthenticationException("Select one of the Hytale profiles shown in the console");
+		}
+
+		return selected;
+	}
+
+	Map<String, Object> form(String path, Map<String, String> values, boolean allowOAuthError) {
 		var body = values.entrySet()
 			.stream()
 			.map(entry -> encode(entry.getKey()) + "=" + encode(entry.getValue()))
 			.collect(Collectors.joining("&"));
+
 		return request(HttpRequest.newBuilder(oauth.resolve(path))
 			.header("Content-Type", "application/x-www-form-urlencoded")
-			.POST(HttpRequest.BodyPublishers.ofString(body)), polling);
+			.POST(HttpRequest.BodyPublishers.ofString(body)), allowOAuthError);
 	}
 
-	private Map<String, Object> request(HttpRequest.Builder request, boolean polling) {
+	Map<String, Object> request(HttpRequest.Builder request, boolean allowOAuthError) {
 		request.timeout(Duration.ofSeconds(30))
 			.header("Accept", "application/json")
 			.header("User-Agent", "Onyxium/0.0.1");
 		try {
 			var response = client.send(request.build(),
 					HttpResponse.BodyHandlers.limiting(HttpResponse.BodyHandlers.ofByteArray(), 1024 * 1024));
-			if (response.statusCode() != 200 && !(polling && response.statusCode() == 400)) {
+			if (response.statusCode() != 200 && !(allowOAuthError && response.statusCode() == 400)) {
 				throw new AuthenticationException("Hytale login request failed (HTTP " + response.statusCode() + ")");
 			}
+
 			var object = JSONObjectUtils.parse(new String(response.body(), StandardCharsets.UTF_8));
-			if (response.statusCode() == 400 && !object.containsKey("error"))
+			if (response.statusCode() == 400 && !object.containsKey("error")) {
 				throw invalidResponse();
+			}
+
 			return object;
 		}
-		catch (IOException exception) {
+		catch (IOException _) {
 			throw new AuthenticationException("Hytale login service unavailable");
 		}
-		catch (InterruptedException exception) {
+		catch (InterruptedException _) {
 			Thread.currentThread().interrupt();
 			throw new AuthenticationException("Hytale device login interrupted");
 		}
-		catch (ParseException exception) {
+		catch (ParseException _) {
 			throw invalidResponse();
 		}
 	}
 
-	private static String encode(String value) {
+	static String encode(String value) {
 		return URLEncoder.encode(value, StandardCharsets.UTF_8);
 	}
 
-	private static String string(Map<?, ?> object, String key) {
+	static String string(Map<?, ?> object, String key) {
 		if (object.get(key) instanceof String value && !value.isBlank())
 			return value;
 		throw invalidResponse();
 	}
 
-	private static int seconds(Map<String, Object> object, String key, int fallback) {
+	static int seconds(Map<String, Object> object, String key, int fallback) {
 		if (!object.containsKey(key))
 			return fallback;
 		if (object.get(key) instanceof Number value && value.intValue() >= 1 && value.intValue() <= 3600)
@@ -183,7 +234,7 @@ public final class HytaleDeviceLogin implements AutoCloseable {
 		throw invalidResponse();
 	}
 
-	private static AuthenticationException invalidResponse() {
+	static AuthenticationException invalidResponse() {
 		return new AuthenticationException("Hytale login service returned an invalid response");
 	}
 

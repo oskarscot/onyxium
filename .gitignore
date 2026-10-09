@@ -13,5 +13,9 @@ build
 # Generated proxy configuration contains credentials.
 /onyxium.yml
 
+# Persisted Hytale OAuth credentials and their atomic-write temporary files.
+onyxium-auth.json
+.onyxium-auth-*.tmp
+
 # Local test servers, assets, worlds and credentials.
 /run/

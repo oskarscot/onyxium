@@ -30,7 +30,7 @@ public final class AppBootstrap {
 			var configuration = ProxyConfigurationFactory.load(path);
 			LOGGER.info("Loaded configuration from {}", path);
 			AuthConfiguration credentials;
-			try (var login = new HytaleDeviceLogin()) {
+			try (var login = new HytaleDeviceLogin(path.resolveSibling("onyxium-auth.json"))) {
 				credentials = login
 					.login(prompt -> LOGGER.info("Log in to Hytale at {}?user_code={} (expires in {} seconds)",
 							prompt.verificationUri(), URLEncoder.encode(prompt.userCode(), StandardCharsets.UTF_8),
