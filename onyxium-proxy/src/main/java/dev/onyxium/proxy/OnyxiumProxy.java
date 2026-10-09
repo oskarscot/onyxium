@@ -30,6 +30,8 @@ public final class OnyxiumProxy implements ProxyServer, Lifecycle {
 
 	PluginManager pluginManager = new PluginManager(this);
 
+	boolean shutdownStarted;
+
 	public OnyxiumProxy(@NotNull NettyNetworkManager networkManager) {
 		this.networkManager = Objects.requireNonNull(networkManager, "networkManager");
 		commandDispatcher.registerHandler(new ProxyCommands(this));
@@ -76,8 +78,10 @@ public final class OnyxiumProxy implements ProxyServer, Lifecycle {
 		return networkManager.players().player(username).map(player -> player);
 	}
 
+	/// The JVM hook is registered before startup, so shutdown must wait until the
+	/// current startup attempt, including any plugin rollback, has finished.
 	@Override
-	public void start() throws LifecycleException {
+	public synchronized void start() throws LifecycleException {
 		pluginManager.start();
 		try {
 			this.networkManager.start(this);
@@ -93,8 +97,14 @@ public final class OnyxiumProxy implements ProxyServer, Lifecycle {
 		}
 	}
 
+	/// The JVM hook must wait for the virtual console thread's cleanup to finish;
+	/// returning early could let the JVM exit while plugins are still disabling.
 	@Override
-	public void shutdown() {
+	public synchronized void shutdown() {
+		if (shutdownStarted) {
+			return;
+		}
+		shutdownStarted = true;
 		try {
 			this.networkManager.stop();
 		}

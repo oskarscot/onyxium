@@ -31,7 +31,8 @@ public interface ProxyServer {
 	/// activation changes with dependency checks instead of invoking plugin callbacks directly.
 	PluginService pluginService();
 
-	/// Stops the proxy and waits for network and authentication cleanup.
+	/// Stops the proxy and waits for network, authentication, and plugin cleanup.
+	/// Concurrent callers wait for that cleanup to finish; repeated calls do not run it again.
 	/// Call from outside a network event loop, such as the console or a shutdown hook.
 	void shutdown();
 

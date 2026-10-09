@@ -16,7 +16,7 @@ interface PluginJars {
 
 	static String manifest(String id, String main, String... dependencies) {
 		var metadata = new HashMap<String, Object>(Map.of("id", id, "version", "1.0", "main", main,
-			"author", List.of("Oskar")));
+			"authors", List.of("Oskar")));
 		if (dependencies.length != 0) {
 			metadata.put("dependencies", List.of(dependencies));
 		}
