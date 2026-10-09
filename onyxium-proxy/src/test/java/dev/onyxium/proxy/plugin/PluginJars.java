@@ -6,6 +6,7 @@ import javax.tools.ToolProvider;
 
 import com.nimbusds.jose.util.JSONObjectUtils;
 import module java.base;
+import org.slf4j.Logger;
 
 import dev.onyxium.command.Command;
 import dev.onyxium.eventbus.EventBus;
@@ -49,7 +50,7 @@ interface PluginJars {
 	}
 
 	static void compile(Path workspace, Path classes, Map<String, String> sources, Path[] dependencies) throws IOException {
-		var classpath = Stream.concat(Stream.of(Plugin.class, Command.class, EventBus.class).map(PluginJars::location),
+		var classpath = Stream.concat(Stream.of(Plugin.class, Command.class, EventBus.class, Logger.class).map(PluginJars::location),
 			Stream.of(dependencies).map(Path::toString)).collect(Collectors.joining(File.pathSeparator));
 		var arguments = new ArrayList<>(List.of("--release", "25", "-classpath", classpath, "-d", classes.toString()));
 		for (var source : sources.entrySet()) {
@@ -79,11 +80,11 @@ interface PluginJars {
 			import dev.onyxium.proxy.api.plugin.Plugin;
 			public final class %s extends Plugin {
 				public %s(ProxyServer proxy) { super(proxy); }
-				public void load() { proxyServer().console().sendMessage("%s.load"); }
+				public void load() { proxyServer().console().sendMessage(logger().getName() + ".load"); }
 				public void enable() { proxyServer().console().sendMessage("%s.enable"); }
 				public void disable() { proxyServer().console().sendMessage("%s.disable"); }
 			}
-			""".formatted(name, name, id, id, id);
+			""".formatted(name, name, id, id);
 	}
 
 }

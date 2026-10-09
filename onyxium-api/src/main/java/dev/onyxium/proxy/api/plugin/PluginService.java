@@ -1,6 +1,7 @@
 package dev.onyxium.proxy.api.plugin;
 
 import module java.base;
+import org.slf4j.Logger;
 
 /// Queries loaded plugins and controls whether their behavior is active. Obtain this
 /// service from [dev.onyxium.proxy.api.ProxyServer#pluginService()].
@@ -9,7 +10,7 @@ import module java.base;
 /// instance does not make it visible here. "Enabled" means [Plugin#enable()] also
 /// completed and the plugin has not since been disabled. Disabled instances remain
 /// loaded until shutdown, which removes them from loaded-plugin queries. Storage paths
-/// remain available for registered instances after shutdown.
+/// and loggers remain available for registered instances after shutdown.
 ///
 /// Management calls run synchronously without locking and must not run concurrently.
 /// Enable and disable are available only after plugin startup finishes and before
@@ -38,6 +39,13 @@ public interface PluginService {
 	/// @return the absolute, normalized path under the proxy's plugins directory
 	/// @throws IllegalStateException if the instance has not been registered with this service
 	Path dataDirectory(Plugin plugin);
+
+	/// The logger assigned to a registered instance, named after its manifest ID.
+	/// Uses the proxy's logging backend and configuration. Unlike loaded-plugin queries,
+	/// this is available before loading finishes and remains available after shutdown.
+	///
+	/// @throws IllegalStateException if the instance has not been registered with this service
+	Logger logger(Plugin plugin);
 
 	/// Whether the ID currently identifies an instance that completed loading.
 	/// Remains true after a runtime disable and becomes false after shutdown.

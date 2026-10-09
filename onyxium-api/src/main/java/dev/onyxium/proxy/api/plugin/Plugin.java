@@ -1,6 +1,7 @@
 package dev.onyxium.proxy.api.plugin;
 
 import module java.base;
+import org.slf4j.Logger;
 
 import dev.onyxium.proxy.api.ProxyServer;
 
@@ -37,6 +38,15 @@ public abstract class Plugin {
 	/// @throws IllegalStateException if called before the plugin has been registered
 	public final Path dataDirectory() {
 		return proxyServer.pluginService().dataDirectory(this);
+	}
+
+	/// Logs under this plugin's manifest ID using the proxy's logging configuration.
+	/// Available during lifecycle callbacks and retained across disable, re-enable,
+	/// and shutdown. The constructor runs before registration, so use this from [#load()] onward.
+	///
+	/// @throws IllegalStateException if called before the plugin has been registered
+	public final Logger logger() {
+		return proxyServer.pluginService().logger(this);
 	}
 
 	/// Prepare state needed for activation, such as validating configuration or building

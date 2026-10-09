@@ -2,6 +2,8 @@ package dev.onyxium.proxy.plugin;
 
 import module java.base;
 import org.jetbrains.annotations.ApiStatus;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 import dev.onyxium.proxy.api.ProxyServer;
 import dev.onyxium.proxy.api.plugin.Plugin;
@@ -70,12 +72,12 @@ public final class PluginManager implements PluginService, Lifecycle {
 
 	@Override
 	public Path dataDirectory(Plugin plugin) {
-		Objects.requireNonNull(plugin, "plugin");
-		return registrations.values().stream()
-			.filter(registration -> registration.plugin == plugin)
-			.map(registration -> registration.dataDirectory)
-			.findFirst()
-			.orElseThrow(() -> new IllegalStateException("Plugin has not been registered"));
+		return requireRegistered(plugin).dataDirectory;
+	}
+
+	@Override
+	public Logger logger(Plugin plugin) {
+		return requireRegistered(plugin).logger;
 	}
 
 	@Override
@@ -374,6 +376,14 @@ public final class PluginManager implements PluginService, Lifecycle {
 		return loadedRegistration(id).orElseThrow(() -> new IllegalArgumentException("Plugin '" + id + "' is not loaded"));
 	}
 
+	Registration requireRegistered(Plugin plugin) {
+		Objects.requireNonNull(plugin, "plugin");
+		return registrations.values().stream()
+			.filter(registration -> registration.plugin == plugin)
+			.findFirst()
+			.orElseThrow(() -> new IllegalStateException("Plugin has not been registered"));
+	}
+
 	void requirePhase(Phase expected) {
 		if (phase != expected) {
 			throw new IllegalStateException("Plugin manager is " + phase);
@@ -392,6 +402,8 @@ public final class PluginManager implements PluginService, Lifecycle {
 
 		Path dataDirectory;
 
+		Logger logger;
+
 		PluginJar jar;
 
 		PluginClassLoader classLoader;
@@ -406,12 +418,12 @@ public final class PluginManager implements PluginService, Lifecycle {
 			this.manifest = manifest;
 			this.plugin = plugin;
 			this.dataDirectory = dataDirectory;
+			this.logger = LoggerFactory.getLogger(manifest.id());
 		}
 
 		Registration(PluginJar jar, Path dataDirectory) {
-			this.manifest = jar.manifest();
+			this(jar.manifest(), null, dataDirectory);
 			this.jar = jar;
-			this.dataDirectory = dataDirectory;
 		}
 
 	}

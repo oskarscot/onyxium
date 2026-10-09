@@ -69,13 +69,14 @@ public class PluginJarLoadingTest {
 					public void load() {
 						checkContext();
 						if (!Files.isDirectory(dataDirectory())) throw new IllegalStateException("Missing data directory");
+						logger().info("Loading plugin");
 						try (var input = getClass().getClassLoader().getResourceAsStream("marker.txt")) {
-							proxyServer().console().sendMessage("addon.load:" + Greeting.text() + ":" + Library.text()
+							proxyServer().console().sendMessage(logger().getName() + ".load:" + Greeting.text() + ":" + Library.text()
 								+ ":" + new String(input.readAllBytes(), StandardCharsets.UTF_8));
 						} catch (IOException failure) { throw new UncheckedIOException(failure); }
 					}
-					public void enable() { checkContext(); proxyServer().console().sendMessage("addon.enable"); }
-					public void disable() { checkContext(); proxyServer().console().sendMessage("addon.disable:" + Greeting.text()); }
+					public void enable() { checkContext(); proxyServer().console().sendMessage(logger().getName() + ".enable"); }
+					public void disable() { checkContext(); proxyServer().console().sendMessage(logger().getName() + ".disable:" + Greeting.text()); }
 					void checkContext() {
 						if (Thread.currentThread().getContextClassLoader() != getClass().getClassLoader())
 							throw new IllegalStateException("Wrong context loader");
