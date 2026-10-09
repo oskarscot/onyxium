@@ -17,6 +17,10 @@ public final class PlayerRegistry {
 		return true;
 	}
 
+	public Optional<ProxyPlayer> player(String username) {
+		return players.values().stream().filter(proxyPlayer -> proxyPlayer.username().equals(username)).findFirst();
+	}
+
 	public Optional<ProxyPlayer> player(UUID uuid) {
 		return Optional.ofNullable(players.get(uuid));
 	}

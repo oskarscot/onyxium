@@ -40,4 +40,10 @@ public interface ProxyServer {
 	/// @return the player, or an empty optional if none is registered
 	Optional<Player> player(UUID uniqueId);
 
+	/// Looks up a registered player by their username. Avoid searching by name if you have the player's uuid.
+	///
+	/// @param username the player's username
+	/// @return the player, or an empty optional if none is registered
+	Optional<Player> player(String username);
+
 }

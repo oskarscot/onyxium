@@ -4,10 +4,13 @@ import module java.base;
 
 import dev.onyxium.command.Command;
 import dev.onyxium.command.CommandSource;
+import dev.onyxium.command.Greedy;
 import dev.onyxium.proxy.api.ProxyServer;
 import dev.onyxium.proxy.api.command.ConsoleSource;
+import dev.onyxium.proxy.api.message.FormattedMessage;
 import dev.onyxium.proxy.api.player.Player;
 
+// TODO: Clean me up once permission handling is added
 public final class ProxyCommands {
 
 	ProxyServer proxy;
@@ -36,5 +39,26 @@ public final class ProxyCommands {
 	public void stop(ConsoleSource source) {
 		source.sendMessage("Stopping proxy...");
 		proxy.shutdown();
+	}
+
+	@Command(name = "onyxium kick", description = "Kicks the target player from the proxy")
+	public void kick(Player source, String username, @Greedy Optional<String> reason) {
+		var target = proxy.player(username);
+		if(target.isEmpty()) {
+			source.sendMessage(FormattedMessage.builder()
+					.text("Player " + username + " is not online.")
+					.color("#ff5555")
+					.build()
+			);
+			return;
+		}
+
+		var player = target.get();
+		player.disconnect(FormattedMessage.builder()
+				.text("You have been kicked from the proxy: ")
+				.color("#777777")
+				.append(reason.orElse("No reason provided."))
+				.color("#fff154")
+			.build());
 	}
 }

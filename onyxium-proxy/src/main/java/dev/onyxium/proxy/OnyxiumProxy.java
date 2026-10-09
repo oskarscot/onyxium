@@ -63,6 +63,11 @@ public final class OnyxiumProxy implements ProxyServer, Lifecycle {
 	}
 
 	@Override
+	public Optional<Player> player(String username) {
+		return networkManager.players().player(username).map(player -> player);
+	}
+
+	@Override
 	public void start() throws LifecycleException {
 		this.networkManager.start(this);
 	}
