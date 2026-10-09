@@ -19,7 +19,7 @@ record PluginJar(Path path, PluginManifest manifest) {
 				var json = JSONObjectUtils.parse(new String(input.readAllBytes(), StandardCharsets.UTF_8));
 				return new PluginJar(path, new PluginManifest(JSONObjectUtils.getString(json, "id"),
 					JSONObjectUtils.getString(json, "version"), JSONObjectUtils.getString(json, "main"),
-					JSONObjectUtils.getStringList(json, "author"), JSONObjectUtils.getStringList(json, "dependencies")));
+					JSONObjectUtils.getStringList(json, "authors"), JSONObjectUtils.getStringList(json, "dependencies")));
 			}
 		}
 		catch (IOException | ParseException | IllegalArgumentException | NullPointerException failure) {

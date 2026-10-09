@@ -19,3 +19,5 @@ include(
 )
 
 include("onyxium-eventbus")
+
+include("onyxium-example-plugin")

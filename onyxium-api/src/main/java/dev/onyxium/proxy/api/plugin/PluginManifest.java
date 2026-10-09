@@ -14,14 +14,14 @@ import module java.base;
 /// @param id case-sensitive identity used for lookups and dependency declarations
 /// @param version descriptive plugin version; no version constraints are evaluated
 /// @param main FQN of the entry class, such as `dev.onyxium.plugin.WelcomePlugin`
-/// @param author names of the plugin's authors; at least one nonblank name is required
+/// @param authors names of the plugin's authors; at least one nonblank name is required
 /// @param dependencies optional required IDs; an omitted list becomes empty
-public record PluginManifest(String id, String version, String main, List<String> author, List<String> dependencies) {
+public record PluginManifest(String id, String version, String main, List<String> authors, List<String> dependencies) {
 
 	public static final String RESOURCE_NAME = "onyxium.json";
 
-	public PluginManifest(String id, String version, String main, List<String> author) {
-		this(id, version, main, author, List.of());
+	public PluginManifest(String id, String version, String main, List<String> authors) {
+		this(id, version, main, authors, List.of());
 	}
 
 	public PluginManifest {
@@ -29,13 +29,13 @@ public record PluginManifest(String id, String version, String main, List<String
 		requireDirectoryName(id);
 		requireText(version, "version");
 		requireText(main, "main");
-		if (author == null || author.isEmpty()) {
+		if (authors == null || authors.isEmpty()) {
 			throw new IllegalArgumentException("Plugin author must contain at least one name");
 		}
-		for (var name : author) {
+		for (var name : authors) {
 			requireText(name, "author name");
 		}
-		author = List.copyOf(author);
+		authors = List.copyOf(authors);
 		dependencies = dependencies == null ? List.of() : List.copyOf(dependencies);
 		for (var dependency : dependencies) {
 			requireText(dependency, "dependency");
