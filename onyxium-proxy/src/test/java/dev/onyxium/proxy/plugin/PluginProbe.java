@@ -14,6 +14,10 @@ final class PluginProbe extends Plugin {
 
 	Set<Callback> failures = Set.of();
 
+	Path dataDirectoryOnLoad;
+
+	boolean dataDirectoryExistsOnLoad;
+
 	PluginProbe(ProxyServer proxy, String id, List<String> callbacks) {
 		super(proxy);
 		this.id = id;
@@ -21,11 +25,13 @@ final class PluginProbe extends Plugin {
 	}
 
 	static PluginManifest manifest(String id, String... dependencies) {
-		return new PluginManifest(id, "1.0", PluginProbe.class.getName(), List.of(dependencies));
+		return new PluginManifest(id, "1.0", PluginProbe.class.getName(), List.of("Oskar"), List.of(dependencies));
 	}
 
 	@Override
 	public void load() {
+		dataDirectoryOnLoad = dataDirectory();
+		dataDirectoryExistsOnLoad = Files.isDirectory(dataDirectoryOnLoad);
 		record(Callback.LOAD);
 	}
 

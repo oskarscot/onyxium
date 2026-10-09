@@ -7,20 +7,32 @@ import static org.mockito.Mockito.inOrder;
 import static org.mockito.Mockito.mock;
 
 import module java.base;
+import org.junit.Before;
+import org.junit.Rule;
 import org.junit.Test;
+import org.junit.rules.TemporaryFolder;
 
 import dev.onyxium.proxy.api.plugin.Plugin;
 import dev.onyxium.proxy.api.plugin.PluginManifest;
 import dev.onyxium.proxy.io.NettyNetworkManager;
 import dev.onyxium.proxy.lifecycle.LifecycleException;
+import dev.onyxium.proxy.plugin.PluginManager;
 
 public class PluginLifecycleIntegrationTest {
+
+	@Rule
+	public TemporaryFolder pluginsDirectory = new TemporaryFolder();
 
 	NettyNetworkManager network = mock(NettyNetworkManager.class);
 
 	Plugin plugin = mock(Plugin.class);
 
 	OnyxiumProxy proxy = new OnyxiumProxy(network);
+
+	@Before
+	public void useTemporaryPluginsDirectory() {
+		proxy.pluginManager = new PluginManager(pluginsDirectory.getRoot().toPath());
+	}
 
 	@Test
 	public void proxyOwnsPluginLifecycleAroundTheNetworkListener() {
@@ -58,7 +70,7 @@ public class PluginLifecycleIntegrationTest {
 	}
 
 	PluginManifest manifest() {
-		return new PluginManifest("sample", "1.0", "example.SamplePlugin", List.of());
+		return new PluginManifest("sample", "1.0", "example.SamplePlugin", List.of("Oskar"));
 	}
 
 }

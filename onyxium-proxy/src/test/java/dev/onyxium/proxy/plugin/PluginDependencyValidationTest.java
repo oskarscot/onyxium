@@ -5,7 +5,9 @@ import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.Mockito.mock;
 
 import module java.base;
+import org.junit.Rule;
 import org.junit.Test;
+import org.junit.rules.TemporaryFolder;
 import org.junit.runner.RunWith;
 import org.junit.runners.Parameterized;
 
@@ -14,6 +16,9 @@ import dev.onyxium.proxy.lifecycle.LifecycleException;
 
 @RunWith(Parameterized.class)
 public class PluginDependencyValidationTest {
+
+	@Rule
+	public TemporaryFolder pluginsDirectory = new TemporaryFolder();
 
 	@Parameterized.Parameters(name = "{0}")
 	public static List<Object[]> dependencies() {
@@ -31,7 +36,7 @@ public class PluginDependencyValidationTest {
 
 	@Test
 	public void invalidDependencyGraphFailsBeforeAnyCallback() {
-		var manager = new PluginManager();
+		var manager = new PluginManager(pluginsDirectory.getRoot().toPath());
 		var proxy = mock(ProxyServer.class);
 		var callbacks = new ArrayList<String>();
 		manager.register(PluginProbe.manifest("core", "addon"), new PluginProbe(proxy, "core", callbacks));

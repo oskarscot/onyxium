@@ -12,11 +12,21 @@ import dev.onyxium.proxy.lifecycle.LifecycleException;
 @ApiStatus.Internal
 public final class PluginManager implements PluginService, Lifecycle {
 
+	Path pluginsDirectory;
+
 	Map<String, Registration> registrations = new LinkedHashMap<>();
 
 	List<Registration> loadOrder = List.of();
 
 	Phase phase = Phase.REGISTERING;
+
+	public PluginManager() {
+		this(Path.of("plugins"));
+	}
+
+	public PluginManager(Path pluginsDirectory) {
+		this.pluginsDirectory = Objects.requireNonNull(pluginsDirectory, "pluginsDirectory").toAbsolutePath().normalize();
+	}
 
 	/// Adds an instance and its metadata to the pending startup set without invoking
 	/// callbacks. It is not visible through loaded-plugin queries until its load succeeds.
@@ -24,6 +34,7 @@ public final class PluginManager implements PluginService, Lifecycle {
 	///
 	/// Dependencies may be registered afterward: the complete graph is checked at startup,
 	/// so registration order does not determine callback order.
+	/// The plugin's data path is assigned here; the directory is created before its load callback.
 	public void register(PluginManifest manifest, Plugin plugin) {
 		requirePhase(Phase.REGISTERING);
 		Objects.requireNonNull(manifest, "manifest");
@@ -34,7 +45,8 @@ public final class PluginManager implements PluginService, Lifecycle {
 		if (registrations.values().stream().anyMatch(registration -> registration.plugin == plugin)) {
 			throw new IllegalArgumentException("Plugin instance is already registered");
 		}
-		registrations.put(manifest.id(), new Registration(manifest, plugin));
+		var dataDirectory = pluginsDirectory.resolve(manifest.id());
+		registrations.put(manifest.id(), new Registration(manifest, plugin, dataDirectory));
 	}
 
 	@Override
@@ -50,6 +62,16 @@ public final class PluginManager implements PluginService, Lifecycle {
 	@Override
 	public Optional<PluginManifest> manifest(String id) {
 		return loadedRegistration(id).map(registration -> registration.manifest);
+	}
+
+	@Override
+	public Path dataDirectory(Plugin plugin) {
+		Objects.requireNonNull(plugin, "plugin");
+		return registrations.values().stream()
+			.filter(registration -> registration.plugin == plugin)
+			.map(registration -> registration.dataDirectory)
+			.findFirst()
+			.orElseThrow(() -> new IllegalStateException("Plugin has not been registered"));
 	}
 
 	@Override
@@ -153,7 +175,7 @@ public final class PluginManager implements PluginService, Lifecycle {
 		}
 	}
 
-	/// Cleans up in reverse dependency order and removes instances from service queries.
+	/// Cleans up in reverse dependency order and removes instances from loaded-plugin queries.
 	/// The proxy stops its network listener before invoking this method. Cleanup includes
 	/// loaded instances that never enabled, but skips an activation already cleaned up.
 	///
@@ -212,10 +234,14 @@ public final class PluginManager implements PluginService, Lifecycle {
 	}
 
 	void load(Registration registration) {
-		registration.needsCleanup = true;
 		try {
+			Files.createDirectories(registration.dataDirectory);
+			registration.needsCleanup = true;
 			registration.plugin.load();
 			registration.loaded = true;
+		}
+		catch (IOException failure) {
+			throw new LifecycleException("Could not create data directory for plugin '" + registration.manifest.id() + "'", failure);
 		}
 		catch (RuntimeException | Error failure) {
 			throw new LifecycleException("Could not load plugin '" + registration.manifest.id() + "'", failure);
@@ -295,15 +321,18 @@ public final class PluginManager implements PluginService, Lifecycle {
 
 		Plugin plugin;
 
+		Path dataDirectory;
+
 		boolean loaded;
 
 		boolean enabled;
 
 		boolean needsCleanup;
 
-		Registration(PluginManifest manifest, Plugin plugin) {
+		Registration(PluginManifest manifest, Plugin plugin, Path dataDirectory) {
 			this.manifest = manifest;
 			this.plugin = plugin;
+			this.dataDirectory = dataDirectory;
 		}
 
 	}

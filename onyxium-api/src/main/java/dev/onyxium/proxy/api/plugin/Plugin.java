@@ -29,6 +29,16 @@ public abstract class Plugin {
 		return proxyServer;
 	}
 
+	/// The plugin's persistent storage directory, named after its manifest ID under
+	/// the proxy's plugins directory. Registration assigns the path, and startup creates
+	/// the directory before [#load()] runs. Disable and shutdown leave its contents intact.
+	///
+	/// @return the absolute, normalized directory path
+	/// @throws IllegalStateException if called before the plugin has been registered
+	public final Path dataDirectory() {
+		return proxyServer.pluginService().dataDirectory(this);
+	}
+
 	/// Prepare state needed for activation, such as validating configuration or building
 	/// command handlers. The manager marks the plugin loaded only after this callback returns.
 	///

@@ -3,9 +3,13 @@ package dev.onyxium.proxy.plugin;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.Mockito.mock;
+import static org.mockito.Mockito.when;
 
 import module java.base;
+import org.junit.Before;
+import org.junit.Rule;
 import org.junit.Test;
+import org.junit.rules.TemporaryFolder;
 
 import dev.onyxium.proxy.api.ProxyServer;
 import dev.onyxium.proxy.lifecycle.LifecycleException;
@@ -14,9 +18,56 @@ public class PluginManagerTest {
 
 	ProxyServer proxy = mock(ProxyServer.class);
 
-	PluginManager manager = new PluginManager();
+	@Rule
+	public TemporaryFolder pluginsDirectory = new TemporaryFolder();
+
+	PluginManager manager;
 
 	List<String> callbacks = new ArrayList<>();
+
+	@Before
+	public void createManager() {
+		manager = new PluginManager(pluginsDirectory.getRoot().toPath());
+		when(proxy.pluginService()).thenReturn(manager);
+	}
+
+	@Test
+	public void createsTheIdDirectoryBeforeLoadAndPreservesItsContentsAfterShutdown() throws IOException {
+		var plugin = register("core");
+		var unregistered = new PluginProbe(proxy, "core", callbacks);
+		var directory = pluginsDirectory.getRoot().toPath().resolve("core");
+		assertThatThrownBy(unregistered::dataDirectory).isInstanceOf(IllegalStateException.class)
+			.hasMessage("Plugin has not been registered");
+		assertThat(plugin.dataDirectory()).isEqualTo(directory);
+		assertThat(Files.exists(directory)).isFalse();
+
+		manager.start();
+		Files.writeString(directory.resolve("state.txt"), "persistent state");
+		manager.disable("core");
+		manager.enable("core");
+		manager.shutdown();
+
+		assertThat(plugin.dataDirectoryOnLoad).isEqualTo(directory);
+		assertThat(plugin.dataDirectoryExistsOnLoad).isTrue();
+		assertThat(plugin.dataDirectory()).isEqualTo(directory);
+		assertThat(Files.readString(directory.resolve("state.txt"))).isEqualTo("persistent state");
+		assertThat(callbacks).containsExactly("core.load", "core.enable", "core.disable", "core.enable", "core.disable");
+	}
+
+	@Test
+	public void directoryCreationFailureAbortsBeforeThePluginCallback() throws IOException {
+		register("core");
+		var directory = pluginsDirectory.getRoot().toPath().resolve("core");
+		Files.writeString(directory, "existing file");
+
+		assertThatThrownBy(manager::start).isInstanceOf(LifecycleException.class)
+			.hasMessage("Plugin startup failed: Could not create data directory for plugin 'core'")
+			.hasRootCauseInstanceOf(FileAlreadyExistsException.class);
+
+		assertThat(callbacks).isEmpty();
+		assertThat(manager.plugins()).isEmpty();
+		assertThat(Files.readString(directory)).isEqualTo("existing file");
+	}
 
 	@Test
 	public void loadsBeforeEnablingAndShutsDownInReverseDependencyOrder() {

@@ -9,4 +9,5 @@ dependencies {
     api(project(":onyxium-command"))
 
     testImplementation(libs.junit)
+    testImplementation(libs.assertj)
 }

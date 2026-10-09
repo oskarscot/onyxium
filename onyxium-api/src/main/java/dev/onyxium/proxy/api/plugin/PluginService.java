@@ -8,7 +8,8 @@ import module java.base;
 /// "Loaded" means [Plugin#load()] returned successfully; merely registering an
 /// instance does not make it visible here. "Enabled" means [Plugin#enable()] also
 /// completed and the plugin has not since been disabled. Disabled instances remain
-/// loaded until shutdown, which removes them from all queries.
+/// loaded until shutdown, which removes them from loaded-plugin queries. Storage paths
+/// remain available for registered instances after shutdown.
 ///
 /// Management calls run synchronously without locking and must not run concurrently.
 /// Enable and disable are available only after plugin startup finishes and before
@@ -29,6 +30,14 @@ public interface PluginService {
 	/// Finds the metadata registered for a loaded plugin. Visibility follows [#plugin(String)],
 	/// so a known but not yet loaded plugin has no manifest in this query either.
 	Optional<PluginManifest> manifest(String id);
+
+	/// The persistent storage path assigned to a registered instance. Unlike loaded-plugin
+	/// queries, this is available before its load callback and remains available after shutdown.
+	/// The directory is created before loading, and its contents are kept across activations.
+	///
+	/// @return the absolute, normalized path under the proxy's plugins directory
+	/// @throws IllegalStateException if the instance has not been registered with this service
+	Path dataDirectory(Plugin plugin);
 
 	/// Whether the ID currently identifies an instance that completed loading.
 	/// Remains true after a runtime disable and becomes false after shutdown.

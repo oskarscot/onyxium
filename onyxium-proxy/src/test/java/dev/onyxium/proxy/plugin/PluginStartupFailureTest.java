@@ -3,9 +3,12 @@ package dev.onyxium.proxy.plugin;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.Mockito.mock;
+import static org.mockito.Mockito.when;
 
 import module java.base;
+import org.junit.Rule;
 import org.junit.Test;
+import org.junit.rules.TemporaryFolder;
 import org.junit.runner.RunWith;
 import org.junit.runners.Parameterized;
 
@@ -14,6 +17,9 @@ import dev.onyxium.proxy.lifecycle.LifecycleException;
 
 @RunWith(Parameterized.class)
 public class PluginStartupFailureTest {
+
+	@Rule
+	public TemporaryFolder pluginsDirectory = new TemporaryFolder();
 
 	@Parameterized.Parameters(name = "{0}")
 	public static List<Object[]> failures() {
@@ -32,7 +38,8 @@ public class PluginStartupFailureTest {
 	@Test
 	public void startupFailureCleansUpEveryAttemptedPluginAndPreservesBothFailures() {
 		var proxy = mock(ProxyServer.class);
-		var manager = new PluginManager();
+		var manager = new PluginManager(pluginsDirectory.getRoot().toPath());
+		when(proxy.pluginService()).thenReturn(manager);
 		var callbacks = new ArrayList<String>();
 		var broken = new PluginProbe(proxy, "broken", callbacks);
 		broken.failures = Set.of(failure, PluginProbe.Callback.DISABLE);
