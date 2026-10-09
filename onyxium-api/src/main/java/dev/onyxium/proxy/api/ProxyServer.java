@@ -7,6 +7,7 @@ import dev.onyxium.eventbus.EventBus;
 import dev.onyxium.proxy.api.command.ConsoleSource;
 import dev.onyxium.proxy.api.network.NetworkManager;
 import dev.onyxium.proxy.api.player.Player;
+import dev.onyxium.proxy.api.plugin.PluginService;
 
 public interface ProxyServer {
 
@@ -23,7 +24,12 @@ public interface ProxyServer {
 	/// Register handlers before starting the proxy. Dispatch runs on the calling thread.
 	CommandDispatcher commandDispatcher();
 
+	/// Returns the instance of [dev.onyxium.command.CommandSource] responsible for console command handling.
 	ConsoleSource console();
+
+	/// Shared plugin management API. Use it to look up loaded plugins or request
+	/// activation changes with dependency checks instead of invoking plugin callbacks directly.
+	PluginService pluginService();
 
 	/// Stops the proxy and waits for network and authentication cleanup.
 	/// Call from outside a network event loop, such as the console or a shutdown hook.

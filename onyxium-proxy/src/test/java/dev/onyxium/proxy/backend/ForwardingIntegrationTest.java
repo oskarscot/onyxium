@@ -168,8 +168,8 @@ public class ForwardingIntegrationTest {
 				new ServerMessage(FormattedMessage.text("Onyxium proxy: 1 player(s) connected.")));
 		assertChatResponse(game, "/proxy players",
 				new ServerMessage(FormattedMessage.text("Online players (1): Oskar")));
-		assertChatResponse(game, "/onyxium foo",
-				new ServerMessage(FormattedMessage.text("Too many arguments. Usage: /onyxium | /onyxium players")));
+		assertChatResponse(game, "/onyxium foo", new ServerMessage(FormattedMessage
+			.text("Too many arguments. Usage: /onyxium | /onyxium kick <username> [reason...] | /onyxium players")));
 		assertChatResponse(game, "/probe player 7", new ServerMessage(FormattedMessage.text("Oskar: 7")));
 		assertChatResponse(game, "/probe console",
 				new ServerMessage(FormattedMessage.text("This command is not available to this source.")));
