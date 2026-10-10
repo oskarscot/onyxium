@@ -23,6 +23,7 @@ val quicNativePlatforms = listOf(
 
 dependencies {
     implementation(project(":onyxium-api"))
+    implementation(libs.picocli)
     implementation(project(":onyxium-forwarding"))
     implementation(libs.okaeri.configs.yaml)
     implementation(libs.okaeri.configs.validator)

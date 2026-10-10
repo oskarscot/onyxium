@@ -15,14 +15,34 @@ import dev.onyxium.proxy.command.ProxyConsole;
 
 public class AppBootstrapTest {
 
-	@Test
-	public void acceptsDefaultAndExplicitConfigurationPaths() {
-		assertEquals(Path.of("onyxium.yml"), AppBootstrap.configPath());
-		assertEquals(Path.of("custom path/proxy.yaml"), AppBootstrap.configPath("--config", "custom path/proxy.yaml"));
-		assertThrows(IllegalArgumentException.class, () -> AppBootstrap.configPath("5520"));
-		assertThrows(IllegalArgumentException.class, () -> AppBootstrap.configPath("--config"));
-		assertThrows(IllegalArgumentException.class, () -> AppBootstrap.configPath("--config", ""));
-	}
+    @Test
+    public void acceptsDefaultAndExplicitConfigurationPaths() {
+        var bootstrap = new AppBootstrap();
+        var command = bootstrap.commandLine();
+        command.parseArgs();
+        assertEquals(Path.of("onyxium.yml"), bootstrap.configurationPath);
+        command.parseArgs("--config", "custom path/proxy.yaml");
+        assertEquals(Path.of("custom path/proxy.yaml"), bootstrap.configurationPath);
+        command.parseArgs("--config=other.yml");
+        assertEquals(Path.of("other.yml"), bootstrap.configurationPath);
+        assertThrows(picocli.CommandLine.ParameterException.class, () -> command.parseArgs("5520"));
+        assertThrows(picocli.CommandLine.ParameterException.class, () -> command.parseArgs("--config"));
+        assertThrows(picocli.CommandLine.ParameterException.class, () -> command.parseArgs("--config", ""));
+        assertThrows(picocli.CommandLine.ParameterException.class, () -> command.parseArgs("--unknown"));
+    }
+
+    @Test
+    public void helpAndVersionDoNotStartTheProxy() {
+        var directory = Path.of("build", "must-not-create", "onyxium.yml");
+        var output = new StringWriter();
+        var command = new AppBootstrap().commandLine().setOut(new PrintWriter(output));
+        assertEquals(0, command.execute("--config", directory.toString(), "--help"));
+        assertThat(output.toString()).contains("Usage:", "--config", "--version");
+        output.getBuffer().setLength(0);
+        assertEquals(0, command.execute("--version"));
+        assertThat(output.toString()).contains("Onyxium v", "commit:");
+        assertThat(Files.exists(directory)).isFalse();
+    }
 
 	@Test
 	public void readsConsoleCommandsBufferedDuringProfileSelection() {

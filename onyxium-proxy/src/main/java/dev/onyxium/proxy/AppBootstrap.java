@@ -3,6 +3,9 @@ import eu.okaeri.configs.exception.OkaeriException;
 import module java.base;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import picocli.CommandLine;
+import picocli.CommandLine.Command;
+import picocli.CommandLine.Option;
 
 import dev.onyxium.proxy.auth.AuthConfiguration;
 import dev.onyxium.proxy.auth.AuthenticationException;
@@ -11,53 +14,44 @@ import dev.onyxium.proxy.config.ProxyConfigurationFactory;
 import dev.onyxium.proxy.io.NettyNetworkManager;
 import dev.onyxium.proxy.lifecycle.LifecycleException;
 
-public final class AppBootstrap {
+@Command(name = "onyxium-proxy", description = "Start the Onyxium Hytale proxy.", mixinStandardHelpOptions = true,
+	versionProvider = BuildInfo.class)
+public final class AppBootstrap implements Callable<Integer> {
 
 	private static final Logger LOGGER = LoggerFactory.getLogger(AppBootstrap.class);
 
-	private static final String USAGE = "Usage: onyxium-proxy [--config <path>] [--help]";
+	Path configurationPath = Path.of("onyxium.yml");
+
+	@Option(names = { "-c", "--config" }, paramLabel = "<path>", description = "Configuration file (default: onyxium.yml).")
+	void configurationPath(String value) {
+		if (value.isBlank())
+			throw new IllegalArgumentException("Configuration path must not be blank");
+		configurationPath = Path.of(value);
+	}
 
 	BufferedReader input = new BufferedReader(new InputStreamReader(System.in, StandardCharsets.UTF_8));
 
-	// TODO: proper argument parsing
 	void main(String... args) {
-		if (args.length == 1 && (args[0].equals("--help") || args[0].equals("-h"))) {
-			System.out.println(USAGE);
-			return;
-		}
+        var exitCode = commandLine().execute(args);
+        if (exitCode != 0)
+            System.exit(exitCode);
+    }
 
-		var properties = new Properties();
+    CommandLine commandLine() {
+        return new CommandLine(this);
+    }
 
-		try (var stream = AppBootstrap.class.getResourceAsStream("/git.properties")) {
-			if (stream == null) {
-				LOGGER.warn("Build information is missing from this build");
-			}
-			else {
-				properties.load(stream);
-			}
-		}
-		catch (IOException exception) {
-			LOGGER.warn("Could not read build information", exception);
-		}
-
-		LOGGER.info("Loading Onyxium v{} (commit: {}{})", properties.getProperty("git.build.version", "unknown"),
-				properties.getProperty("git.commit.id.abbrev", "unknown"),
-				Boolean.parseBoolean(properties.getProperty("git.dirty", "false")) ? ", local changes" : "");
-
+    @Override
+    public Integer call() {
+        var build = BuildInfo.load();
+        LOGGER.info("Loading {}", build.display());
 		try {
-			var path = configPath(args).toAbsolutePath().normalize();
+			var path = configurationPath.toAbsolutePath().normalize();
 			var configuration = ProxyConfigurationFactory.load(path);
 
 			LOGGER.info("Loaded configuration from {}", path);
 
-			AuthConfiguration credentials;
-
-			try (var login = new HytaleDeviceLogin(path.resolveSibling("onyxium-auth.json"))) {
-				credentials = login
-					.login(prompt -> LOGGER.info("Log in to Hytale at {}?user_code={} (expires in {} seconds)",
-							prompt.verificationUri(), URLEncoder.encode(prompt.userCode(), StandardCharsets.UTF_8),
-							prompt.expiresIn()), this::selectProfile);
-			}
+			var credentials = authenticate(path);
 
 			var proxy = new OnyxiumProxy(new NettyNetworkManager(configuration, credentials));
 
@@ -72,14 +66,25 @@ public final class AppBootstrap {
 		catch (OkaeriException exception) {
 			LOGGER.error(
 				"Could not load proxy configuration, check YAML types, validation constraints and environment placeholders");
-			System.exit(1);
+			return 1;
 		}
 
 		catch (IllegalArgumentException | AuthenticationException | LifecycleException exception) {
 			LOGGER.error("{}", exception.getMessage());
-			System.exit(1);
+			return 1;
 		}
-	}
+
+        return 0;
+    }
+
+    private AuthConfiguration authenticate(Path configurationPath) {
+        try (var login = new HytaleDeviceLogin(configurationPath.resolveSibling("onyxium-auth.json"))) {
+            return login.login(prompt -> LOGGER.info(
+                    "Log in to Hytale at {}?user_code={} (expires in {} seconds)",
+                    prompt.verificationUri(), URLEncoder.encode(prompt.userCode(), StandardCharsets.UTF_8),
+                    prompt.expiresIn()), this::selectProfile);
+        }
+    }
 
 	UUID selectProfile(List<HytaleDeviceLogin.GameProfile> profiles) {
 		for (var i = 0; i < profiles.size(); i++) {
@@ -104,19 +109,6 @@ public final class AppBootstrap {
 				throw new AuthenticationException("Could not read profile selection from the console");
 			}
 		}
-	}
-
-	static Path configPath(String... args) {
-		try {
-			if (args.length == 0)
-				return Path.of("onyxium.yml");
-			if (args.length == 2 && args[0].equals("--config") && !args[1].isBlank())
-				return Path.of(args[1]);
-		}
-		catch (InvalidPathException exception) {
-			throw new IllegalArgumentException("Invalid configuration path");
-		}
-		throw new IllegalArgumentException(USAGE);
 	}
 
 }
