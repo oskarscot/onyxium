@@ -72,7 +72,7 @@ subprojects {
     apply(plugin = "java")
 
     group = "dev.onyxium"
-    version = "0.0.1-SNAPSHOT"
+    version = rootProject.version
 
     repositories {
         mavenCentral()

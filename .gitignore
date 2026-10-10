@@ -19,3 +19,4 @@ onyxium-auth.json
 
 # Local test servers, assets, worlds and credentials.
 /run/
+/.run/

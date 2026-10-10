@@ -1,5 +1,6 @@
 plugins {
     alias(libs.plugins.shadow)
+    id("com.gorylenko.gradle-git-properties") version "4.0.1"
 }
 
 abstract class MockitoAgentProvider : CommandLineArgumentProvider {
@@ -71,4 +72,37 @@ tasks.test {
     jvmArgumentProviders.add(objects.newInstance<MockitoAgentProvider>().apply {
         agentJar.from(mockitoAgent)
     })
+}
+
+gitProperties {
+    keys = listOf(
+        "git.build.version",
+        "git.commit.id",
+        "git.commit.id.abbrev",
+        "git.dirty"
+    )
+}
+
+val proxyRunDirectory = rootProject.layout.projectDirectory.dir("run/proxy")
+
+val prepareProxyRunDirectory = tasks.register("prepareProxyRunDirectory") {
+    val directory = proxyRunDirectory
+    outputs.dir(directory)
+    doLast {
+        directory.asFile.mkdirs()
+    }
+}
+
+tasks.register<JavaExec>("runProxy") {
+    group = "application"
+    description = "Builds and runs the proxy from run/proxy."
+    dependsOn(prepareProxyRunDirectory)
+    classpath(tasks.shadowJar)
+    mainClass = "dev.onyxium.proxy.AppBootstrap"
+    javaLauncher = javaToolchains.launcherFor {
+        languageVersion = JavaLanguageVersion.of(25)
+    }
+    workingDir(proxyRunDirectory)
+    standardInput = System.`in`
+    jvmArgs(nativeAccess)
 }

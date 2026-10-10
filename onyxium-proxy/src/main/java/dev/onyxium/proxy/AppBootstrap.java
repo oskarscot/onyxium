@@ -25,28 +25,56 @@ public final class AppBootstrap {
 			System.out.println(USAGE);
 			return;
 		}
+
+		var properties = new Properties();
+
+		try (var stream = AppBootstrap.class.getResourceAsStream("/git.properties")) {
+			if (stream == null) {
+				LOGGER.warn("Build information is missing from this build");
+			}
+			else {
+				properties.load(stream);
+			}
+		}
+		catch (IOException exception) {
+			LOGGER.warn("Could not read build information", exception);
+		}
+
+		LOGGER.info("Loading Onyxium v{} (commit: {}{})", properties.getProperty("git.build.version", "unknown"),
+				properties.getProperty("git.commit.id.abbrev", "unknown"),
+				Boolean.parseBoolean(properties.getProperty("git.dirty", "false")) ? ", local changes" : "");
+
 		try {
 			var path = configPath(args).toAbsolutePath().normalize();
 			var configuration = ProxyConfigurationFactory.load(path);
+
 			LOGGER.info("Loaded configuration from {}", path);
+
 			AuthConfiguration credentials;
+
 			try (var login = new HytaleDeviceLogin(path.resolveSibling("onyxium-auth.json"))) {
 				credentials = login
 					.login(prompt -> LOGGER.info("Log in to Hytale at {}?user_code={} (expires in {} seconds)",
 							prompt.verificationUri(), URLEncoder.encode(prompt.userCode(), StandardCharsets.UTF_8),
 							prompt.expiresIn()), this::selectProfile);
 			}
+
 			var proxy = new OnyxiumProxy(new NettyNetworkManager(configuration, credentials));
+
 			Runtime.getRuntime().addShutdownHook(new Thread(proxy::shutdown, "onyxium-shutdown"));
+
 			LOGGER.info("Hytale authentication completed");
+
 			proxy.start();
+
 			Thread.ofVirtual().name("onyxium-console").start(() -> proxy.console().read(input));
 		}
 		catch (OkaeriException exception) {
 			LOGGER.error(
-					"Could not load proxy configuration, check YAML types, validation constraints and environment placeholders");
+				"Could not load proxy configuration, check YAML types, validation constraints and environment placeholders");
 			System.exit(1);
 		}
+
 		catch (IllegalArgumentException | AuthenticationException | LifecycleException exception) {
 			LOGGER.error("{}", exception.getMessage());
 			System.exit(1);
@@ -57,6 +85,7 @@ public final class AppBootstrap {
 		for (var i = 0; i < profiles.size(); i++) {
 			LOGGER.info("[{}] {} ({})", i + 1, profiles.get(i).username(), profiles.get(i).uuid());
 		}
+
 		while (true) {
 			LOGGER.info("Enter the number of the Hytale profile to use:");
 			try {
