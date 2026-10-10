@@ -3,11 +3,14 @@ package dev.onyxium.proxy;
 import module java.base;
 import org.jetbrains.annotations.ApiStatus;
 import org.jetbrains.annotations.NotNull;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 import dev.onyxium.command.CommandDispatcher;
 import dev.onyxium.eventbus.EventBus;
 import dev.onyxium.proxy.api.ProxyServer;
 import dev.onyxium.proxy.api.network.NetworkManager;
+import dev.onyxium.proxy.api.permission.PermissionService;
 import dev.onyxium.proxy.api.player.Player;
 import dev.onyxium.proxy.api.plugin.PluginService;
 import dev.onyxium.proxy.command.ProxyCommands;
@@ -15,10 +18,13 @@ import dev.onyxium.proxy.command.ProxyConsole;
 import dev.onyxium.proxy.io.NettyNetworkManager;
 import dev.onyxium.proxy.lifecycle.Lifecycle;
 import dev.onyxium.proxy.lifecycle.LifecycleException;
+import dev.onyxium.proxy.permission.ProxyPermissionService;
 import dev.onyxium.proxy.plugin.PluginManager;
 
 @ApiStatus.Internal
 public final class OnyxiumProxy implements ProxyServer, Lifecycle {
+
+	private static final Logger LOGGER = LoggerFactory.getLogger(OnyxiumProxy.class);
 
 	NettyNetworkManager networkManager;
 
@@ -29,6 +35,8 @@ public final class OnyxiumProxy implements ProxyServer, Lifecycle {
 	ProxyConsole console = new ProxyConsole(commandDispatcher);
 
 	PluginManager pluginManager = new PluginManager(this);
+
+	final PermissionService permissions = new ProxyPermissionService();
 
 	boolean shutdownStarted;
 
@@ -70,6 +78,11 @@ public final class OnyxiumProxy implements ProxyServer, Lifecycle {
 	}
 
 	@Override
+	public PermissionService permissionService() {
+		return permissions;
+	}
+
+	@Override
 	public Collection<Player> players() {
 		return List.copyOf(networkManager.players().players());
 	}
@@ -100,6 +113,11 @@ public final class OnyxiumProxy implements ProxyServer, Lifecycle {
 				failure.addSuppressed(cleanupFailure);
 			}
 			throw failure;
+		}
+
+		if (permissions.registration() == null) {
+			LOGGER.warn("No permission provider is registered. Players cannot use commands that require permissions. "
+					+ "Install a permissions plugin to enable them.");
 		}
 	}
 

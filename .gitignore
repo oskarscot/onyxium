@@ -20,3 +20,9 @@ onyxium-auth.json
 # Local test servers, assets, worlds and credentials.
 /run/
 /.run/
+
+# Local player permission assignments.
+permissions.yml
+permissions.bin
+plugins/permissions/
+.permissions-*.tmp

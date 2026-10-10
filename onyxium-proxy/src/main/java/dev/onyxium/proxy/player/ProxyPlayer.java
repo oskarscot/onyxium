@@ -4,6 +4,7 @@ import module java.base;
 import org.jetbrains.annotations.NotNull;
 
 import dev.onyxium.proxy.api.message.FormattedMessage;
+import dev.onyxium.proxy.api.permission.PermissionService;
 import dev.onyxium.proxy.api.player.Player;
 import dev.onyxium.proxy.auth.AuthenticatedProfile;
 import dev.onyxium.proxy.io.connection.DisconnectErrorCode;
@@ -16,6 +17,8 @@ import dev.onyxium.proxy.io.packet.chat.ServerMessage;
 
 /// Created only after mutual authentication and the optional password challenge succeed.
 public final class ProxyPlayer implements Player {
+
+	private final PermissionService permissions;
 
 	private final ProtocolConnection connection;
 
@@ -33,7 +36,8 @@ public final class ProxyPlayer implements Player {
 
 	private final HostAddress referralSource;
 
-	public ProxyPlayer(ProtocolConnection connection, AuthenticatedProfile profile, Connect connect) {
+	public ProxyPlayer(ProtocolConnection connection, AuthenticatedProfile profile, Connect connect, PermissionService permissions) {
+		this.permissions = Objects.requireNonNull(permissions, "permissions");
 		this.connection = connection;
 		this.profile = profile;
 		protocolVersion = new ProtocolVersion(connect.protocolCrc(), connect.protocolBuildNumber());
@@ -64,10 +68,10 @@ public final class ProxyPlayer implements Player {
 		return connection.active();
 	}
 
-	/// Backend permissions are not shared with the proxy. Named permissions are denied for now.
+	/// Checks the current proxy provider. Backend permissions are separate.
 	@Override
 	public boolean hasPermission(String permission) {
-		return false;
+		return permissions.hasPermission(uuid(), permission);
 	}
 
 	@Override

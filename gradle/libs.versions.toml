@@ -16,6 +16,7 @@ nimbus-jose-jwt = "10.9.1"
 spotless = "8.10.2"
 shadow = "9.6.1"
 okaeri-configs = "6.1.0-beta.4"
+snakeyaml = "2.5"
 
 picocli = "4.7.7"
 
@@ -44,6 +45,7 @@ fastutil = { module = "it.unimi.dsi:fastutil", version.ref = "fastutil" }
 nimbus-jose-jwt = { module = "com.nimbusds:nimbus-jose-jwt", version.ref = "nimbus-jose-jwt" }
 okaeri-configs-yaml = { module = "eu.okaeri:okaeri-configs-yaml-snakeyaml", version.ref = "okaeri-configs" }
 okaeri-configs-validator = { module = "eu.okaeri:okaeri-configs-validator-okaeri", version.ref = "okaeri-configs" }
+snakeyaml = { module = "org.yaml:snakeyaml", version.ref = "snakeyaml" }
 
 picocli = { module = "info.picocli:picocli", version.ref = "picocli" }
 

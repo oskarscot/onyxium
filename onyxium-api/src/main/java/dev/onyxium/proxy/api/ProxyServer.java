@@ -6,6 +6,7 @@ import dev.onyxium.command.CommandDispatcher;
 import dev.onyxium.eventbus.EventBus;
 import dev.onyxium.proxy.api.command.ConsoleSource;
 import dev.onyxium.proxy.api.network.NetworkManager;
+import dev.onyxium.proxy.api.permission.PermissionService;
 import dev.onyxium.proxy.api.player.Player;
 import dev.onyxium.proxy.api.plugin.PluginService;
 
@@ -30,6 +31,9 @@ public interface ProxyServer {
 	/// Shared plugin management API. Use it to look up loaded plugins or request
 	/// activation changes with dependency checks instead of invoking plugin callbacks directly.
 	PluginService pluginService();
+
+	/// Checks player permissions through the active plugin provider.
+	PermissionService permissionService();
 
 	/// Stops the proxy and waits for network, authentication, and plugin cleanup.
 	/// Concurrent callers wait for that cleanup to finish; repeated calls do not run it again.

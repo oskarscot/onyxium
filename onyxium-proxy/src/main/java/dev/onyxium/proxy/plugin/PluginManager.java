@@ -317,6 +317,11 @@ public final class PluginManager implements PluginService, Lifecycle {
 			invoke(registration, registration.plugin::disable);
 		}
 		finally {
+			var permissions = proxy.permissionService();
+
+			if (permissions != null) {
+				permissions.unregister(registration.plugin);
+			}
 			registration.needsCleanup = false;
 		}
 	}

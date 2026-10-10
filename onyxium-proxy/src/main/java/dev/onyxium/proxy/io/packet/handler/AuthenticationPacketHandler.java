@@ -133,7 +133,7 @@ public final class AuthenticationPacketHandler extends GenericPacketHandler {
 		if (!connection.active()) {
 			return;
 		}
-		var player = new ProxyPlayer(connection, identity, connect);
+		var player = new ProxyPlayer(connection, identity, connect, login.proxy().permissionService());
 
 		var loginEvent = new PostLoginEvent(player);
 		login.proxy().eventBus().postEvent(loginEvent);

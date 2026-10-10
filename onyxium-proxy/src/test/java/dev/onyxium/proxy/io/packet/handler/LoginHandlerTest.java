@@ -52,6 +52,7 @@ import dev.onyxium.proxy.io.packet.auth.PasswordAccepted;
 import dev.onyxium.proxy.io.packet.auth.PasswordRejected;
 import dev.onyxium.proxy.io.packet.auth.PasswordResponse;
 import dev.onyxium.proxy.io.packet.auth.ServerAuthToken;
+import dev.onyxium.proxy.permission.ProxyPermissionService;
 import dev.onyxium.proxy.player.PlayerRegistry;
 import dev.onyxium.proxy.player.ProxyPlayer;
 
@@ -345,6 +346,7 @@ public class LoginHandlerTest {
 			Consumer<ProxyPlayer> onAuthenticated) {
 		var proxy = mock(ProxyServer.class);
 		when(proxy.eventBus()).thenReturn(new EventBus());
+		when(proxy.permissionService()).thenReturn(new ProxyPermissionService());
 		return new LoginContext(proxy, authentication.service, new PlayerRegistry(), ProtocolVersion.CURRENT, password,
 				onAuthenticated);
 	}

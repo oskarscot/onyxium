@@ -43,6 +43,29 @@ public class PluginLifecycleIntegrationTest {
 	}
 
 	@Test
+	public void disablingPermissionPluginDeniesChecksEvenWhenCleanupFails() {
+		var player = UUID.randomUUID();
+
+		var providerPlugin = new Plugin(proxy) {
+			@Override
+			public void enable() {
+				proxyServer().permissionService().register(this, (uuid, permission) -> true);
+			}
+
+			@Override
+			public void disable() {
+				throw new IllegalStateException("cleanup failed");
+			}
+		};
+
+		proxy.pluginManager.register(manifest(), providerPlugin);
+		proxy.start();
+		assertThat(proxy.permissionService().hasPermission(player, "test.permission")).isTrue();
+		assertThatThrownBy(proxy::shutdown).isInstanceOf(LifecycleException.class);
+		assertThat(proxy.permissionService().hasPermission(player, "test.permission")).isFalse();
+	}
+
+	@Test
 	public void failedNetworkStartupCleansUpPlugins() {
 		proxy.pluginManager.register(manifest(), plugin);
 		var failure = new LifecycleException("Listener failed");
