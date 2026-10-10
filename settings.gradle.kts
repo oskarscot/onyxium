@@ -15,9 +15,7 @@ include(
     "onyxium-backend",
     "onyxium-forwarding",
     "onyxium-api",
-    "onyxium-command"
+    "onyxium-command",
+    "onyxium-eventbus",
+    "onyxium-example-plugin"
 )
-
-include("onyxium-eventbus")
-
-include("onyxium-example-plugin")
