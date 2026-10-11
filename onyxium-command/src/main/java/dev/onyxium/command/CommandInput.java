@@ -1,6 +1,6 @@
 package dev.onyxium.command;
 
-/// Incremental tokenization lets a greedy tail bypass quote parsing and retain its original text.
+/// Reads input one argument at a time, leaving greedy text untouched until needed.
 final class CommandInput {
 
 	String raw;
@@ -18,7 +18,8 @@ final class CommandInput {
 		}
 	}
 
-	/// Literal lookup must not tokenize a greedy tail or an unknown backend command.
+	/// Reads the next word without consuming it or interpreting quotes and escapes.
+	/// This leaves unknown commands and greedy arguments intact.
 	String literal() {
 		var start = position;
 		while (start < raw.length() && Character.isWhitespace(raw.charAt(start))) {

@@ -36,8 +36,10 @@ public class CommandRegistrationTest {
 		var console = new ConsoleSource(Set.of("onyxium.kick"));
 		var player = new PlayerSource(Set.of());
 
-		assertThat(dispatcher.commands(console)).extracting(CommandDefinition::name).containsExactly("foo bar", "stop");
-		assertThat(dispatcher.commands(player)).extracting(CommandDefinition::name).containsExactly("where");
+		assertThat(dispatcher.commands(console)).extracting(CommandDefinition::name)
+			.containsExactly("foo bar", "foo {value} bar", "stop");
+		assertThat(dispatcher.commands(player)).extracting(CommandDefinition::name)
+			.containsExactly("foo {value} bar", "where");
 	}
 
 	@Test
@@ -75,9 +77,9 @@ public class CommandRegistrationTest {
 		dispatcher.registerHandler(new Commands());
 		dispatcher.registerHandler(new Parent());
 
-		var command = dispatcher.tree.roots().get("f").children().get("barfoo").command();
+		var command = dispatcher.tree.roots().get("f").children().get("barfoo").definitions().findFirst().orElseThrow();
 
-		assertThat(command.definition().name()).isEqualTo("foo bar");
+		assertThat(command.name()).isEqualTo("foo bar");
 	}
 
 	@Test
@@ -120,6 +122,10 @@ public class CommandRegistrationTest {
 
 		@Command(name = "where")
 		public void where(PlayerSource source) {
+		}
+
+		@Command(name = "foo {value} bar")
+		public void literal(CommandSource source, Integer value) {
 		}
 
 	}

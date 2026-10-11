@@ -21,19 +21,34 @@ record RegisteredCommand(CommandDefinition definition, MethodHandle invocation) 
 				.skip(1)
 				.map(parameter -> argument(method, parameter, parsers))
 				.toList();
-		validateOrder(method, arguments);
-
 		var annotation = method.getAnnotation(Command.class);
-		var name = path(annotation.name());
+		var declaredPath = path(annotation.name(), arguments);
+		var name = declaredPath.stream().map(segment -> switch (segment) {
+			case CommandSegment.Literal literal -> literal.text();
+			case CommandSegment.Argument argument -> "{" + argument.argumentDefinition().name() + "}";
+		}).collect(Collectors.joining(" "));
+
+		var path = new ArrayList<>(declaredPath);
+		for (var argument : arguments) {
+			var segment = new CommandSegment.Argument(argument);
+			if (!path.contains(segment)) {
+				path.add(segment);
+			}
+		}
+		validateOrder(method, path);
+
 		var aliases = Stream.of(annotation.aliases()).map(RegisteredCommand::segment).toList();
-		var leaf = name.substring(name.lastIndexOf(' ') + 1);
+		var leaf = declaredPath.reversed().stream()
+				.filter(CommandSegment.Literal.class::isInstance)
+				.map(CommandSegment.Literal.class::cast)
+				.findFirst().orElseThrow().text();
 
 		if (aliases.contains(leaf) || aliases.stream().distinct().count() != aliases.size()) {
 			throw invalid(method, "Aliases must be distinct from the name and each other.");
 		}
 
 		var definition = new CommandDefinition(name, aliases, annotation.permission(), annotation.description(),
-				parameters[0].getType().asSubclass(CommandSource.class), arguments);
+				parameters[0].getType().asSubclass(CommandSource.class), arguments, path);
 
 		try {
 			var invocation = MethodHandles.publicLookup()
@@ -100,25 +115,69 @@ record RegisteredCommand(CommandDefinition definition, MethodHandle invocation) 
 		throw invalid(method, "Argument types must be concrete classes, optionally wrapped in Optional.");
 	}
 
-	static void validateOrder(Method method, List<ArgumentDefinition> arguments) {
-		var optionalTail = arguments.stream().dropWhile(Predicate.not(ArgumentDefinition::optional));
-		if (!optionalTail.allMatch(ArgumentDefinition::optional)) {
-			throw invalid(method, "Required arguments must precede optional arguments.");
-		}
+	static void validateOrder(Method method, List<CommandSegment> path) {
+		var optionalTail = false;
 
-		var leading = arguments.stream().limit(Math.max(0, arguments.size() - 1));
-		if (leading.anyMatch(ArgumentDefinition::greedy)) {
-			throw invalid(method, "Greedy arguments must be last.");
+		for (var index = 0; index < path.size(); index++) {
+			if (path.get(index) instanceof CommandSegment.Argument segment) {
+				var argument = segment.argumentDefinition();
+
+				if (optionalTail && !argument.optional()) {
+					throw invalid(method, "Required arguments must precede optional arguments.");
+				}
+				if (argument.greedy() && index != path.size() - 1) {
+					throw invalid(method, "Greedy arguments must be last.");
+				}
+
+				optionalTail |= argument.optional();
+			}
+			else if (optionalTail) {
+				throw invalid(method, "Literal segments cannot follow optional arguments.");
+			}
 		}
 	}
 
-	static String path(String name) {
+	static List<CommandSegment> path(String name, List<ArgumentDefinition> arguments) {
 		var normalized = name.strip();
 		if (normalized.isEmpty()) {
 			throw new IllegalArgumentException("Command paths cannot be empty.");
 		}
 
-		return Stream.of(normalized.split("\\s+")).map(RegisteredCommand::segment).collect(Collectors.joining(" "));
+		var result = new ArrayList<CommandSegment>();
+		var referenced = new HashSet<String>();
+
+		for (var token : normalized.split("\\s+")) {
+			if (!token.contains("{") && !token.contains("}")) {
+				result.add(new CommandSegment.Literal(segment(token)));
+				continue;
+			}
+
+			if (!token.startsWith("{") || !token.endsWith("}") || token.length() <= 2) {
+				throw new IllegalArgumentException("Invalid argument placeholder: " + token);
+			}
+
+			var argumentName = token.substring(1, token.length() - 1);
+			if (argumentName.contains("{") || argumentName.contains("}")) {
+				throw new IllegalArgumentException("Invalid argument placeholder: " + token);
+			}
+
+			var argument = arguments.stream()
+				.filter(arg -> arg.name().equals(argumentName))
+				.findFirst()
+				.orElseThrow(() -> new IllegalArgumentException("Unknown argument placeholder: " + argumentName));
+
+			if (!referenced.add(argumentName)) {
+				throw new IllegalArgumentException("Duplicate argument placeholder: " + argumentName);
+			}
+
+			result.add(new CommandSegment.Argument(argument));
+		}
+
+		if (!(result.getFirst() instanceof CommandSegment.Literal)) {
+			throw new IllegalArgumentException("Command paths must start with a literal.");
+		}
+
+		return List.copyOf(result);
 	}
 
 	static String segment(String name) {

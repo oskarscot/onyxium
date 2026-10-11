@@ -2,8 +2,10 @@ package dev.onyxium.command;
 
 import module java.base;
 
-/// Makes the final String or Optional<String> argument consume the original remaining text.
-/// Quotes, escapes and whitespace within the tail are preserved rather than tokenized.
+/// Reads all remaining input into a `String` or `Optional<String>` argument.
+///
+/// The argument must be last in the command path. Leading whitespace is skipped;
+/// quotes, escapes and all subsequent whitespace are preserved as written.
 @Target(ElementType.PARAMETER)
 @Retention(RetentionPolicy.RUNTIME)
 public @interface Greedy {
