@@ -21,10 +21,6 @@ abstract class PermissionsPluginProvider : CommandLineArgumentProvider {
 
 val mockitoAgent = configurations.create("mockitoAgent")
 
-val permissionsPlugin = configurations.create("permissionsPlugin") {
-    isCanBeConsumed = false
-    isTransitive = false
-}
 
 val quicNativePlatforms = listOf(
     "linux-x86_64",
@@ -60,7 +56,6 @@ dependencies {
     testImplementation(libs.assertj)
     testImplementation(libs.mockito)
     mockitoAgent(libs.mockito) { isTransitive = false }
-    permissionsPlugin(project(path = ":onyxium-permissions", configuration = "pluginJar"))
 }
 
 val nativeAccess = listOf("--enable-native-access=ALL-UNNAMED")
@@ -86,9 +81,6 @@ tasks.test {
     jvmArgs(nativeAccess)
     jvmArgumentProviders.add(objects.newInstance<MockitoAgentProvider>().apply {
         agentJar.from(mockitoAgent)
-    })
-    jvmArgumentProviders.add(objects.newInstance<PermissionsPluginProvider>().apply {
-        pluginJar.from(permissionsPlugin)
     })
 }
 
