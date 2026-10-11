@@ -5,14 +5,17 @@ import module java.base;
 /// Registers command handlers and dispatches input to them.
 ///
 /// A command is available only when the source matches its declared type and has its required permission.
-/// Do not register or unregister handlers while other threads use this dispatcher.
+/// Handlers can be registered or removed while commands are being dispatched. An in-progress
+/// dispatch may finish using a removed handler. Register argument converters before concurrent use.
 public final class CommandDispatcher {
 
 	static final System.Logger LOGGER = System.getLogger(CommandDispatcher.class.getName());
 
-	ArgumentParser argumentParser = new ArgumentParser();
+	final ArgumentParser argumentParser = new ArgumentParser();
 
-	CommandTree tree = CommandTree.build(List.of());
+	private final ReentrantLock registrationLock = new ReentrantLock();
+
+	volatile CommandTree tree = CommandTree.build(List.of());
 
 	/// Creates a dispatcher with no registered commands.
 	public CommandDispatcher() {
@@ -28,29 +31,61 @@ public final class CommandDispatcher {
 	/// Registers the object's declared [Command] methods, ignoring inherited methods.
 	///
 	/// If any method is invalid or conflicts with an existing command, no commands are added.
-	/// Use the returned registration to remove this handler's commands later.
+	/// This overload registers without an owner. Use the returned registration to remove the commands.
 	///
 	/// @param handler the object whose command methods will be invoked
 	/// @return the handler's registered commands and their unregistration handle
 	/// @throws IllegalArgumentException if the handler has no commands or any declaration is invalid or conflicts
 	public CommandRegistration registerHandler(Object handler) {
+		return register(null, handler);
+	}
+
+	/// Registers a handler's commands under an owner so they can be removed together.
+	///
+	/// Owners are compared by identity. The returned handle can still remove this handler separately.
+	/// If any declaration is invalid or conflicts with an existing command, no commands are added.
+	///
+	/// @param owner the object responsible for the commands
+	/// @param handler the object whose declared [Command] methods will be invoked
+	/// @return the handler's registered commands and their unregistration handle
+	/// @throws IllegalArgumentException if the handler has no commands or any declaration is invalid or conflicts
+	public CommandRegistration registerHandler(Object owner, Object handler) {
+		return register(Objects.requireNonNull(owner, "owner"), handler);
+	}
+
+	CommandRegistration register(Object owner, Object handler) {
 		Objects.requireNonNull(handler, "handler");
 
 		var additions = Stream.of(handler.getClass().getDeclaredMethods())
 			.filter(method -> method.isAnnotationPresent(Command.class))
 			.sorted(Comparator.comparing(Method::toGenericString))
-			.map(method -> RegisteredCommand.compile(handler, method, argumentParser))
+			.map(method -> RegisteredCommand.compile(owner, handler, method, argumentParser))
 			.toList();
 
 		if (additions.isEmpty()) {
 			throw new IllegalArgumentException("Handler has no declared @Command methods.");
 		}
 
-		var updated = Stream.concat(tree.commands().stream(), additions.stream()).toList();
-		tree = CommandTree.build(updated);
+		registrationLock.lock();
+		try {
+			var updated = Stream.concat(tree.commands().stream(), additions.stream()).toList();
+			tree = CommandTree.build(updated);
+		}
+		finally {
+			registrationLock.unlock();
+		}
 
 		return new CommandRegistration(additions.stream().map(RegisteredCommand::definition).toList(),
-				() -> remove(additions));
+				() -> remove(additions::contains));
+	}
+
+	/// Removes every command and alias registered under this owner, compared by identity.
+	/// Other owners and registrations without an owner are unaffected. Repeated calls have no further effect.
+	///
+	/// @param owner the owner whose commands should be removed
+	public void unregister(Object owner) {
+		Objects.requireNonNull(owner, "owner");
+		remove(command -> command.owner() == owner);
 	}
 
 	/// {@return all registered commands, regardless of source type or permission}
@@ -235,8 +270,14 @@ public final class CommandDispatcher {
 		return command.permission().isEmpty() || source.hasPermission(command.permission());
 	}
 
-	void remove(List<RegisteredCommand> registrations) {
-		tree = CommandTree.build(tree.commands().stream().filter(command -> !registrations.contains(command)).toList());
+	void remove(Predicate<RegisteredCommand> matches) {
+		registrationLock.lock();
+		try {
+			tree = CommandTree.build(tree.commands().stream().filter(matches.negate()).toList());
+		}
+		finally {
+			registrationLock.unlock();
+		}
 	}
 
 }

@@ -5,13 +5,13 @@ import module java.base;
 /// The commands registered by one handler, with a handle to unregister them together.
 public final class CommandRegistration {
 
-	List<CommandDefinition> commands;
+	final List<CommandDefinition> commands;
 
-	Runnable removal;
+	final AtomicReference<Runnable> removal;
 
 	CommandRegistration(List<CommandDefinition> commands, Runnable removal) {
 		this.commands = List.copyOf(commands);
-		this.removal = removal;
+		this.removal = new AtomicReference<>(removal);
 	}
 
 	/// {@return the commands originally registered by this handler, even after unregistration}
@@ -21,9 +21,9 @@ public final class CommandRegistration {
 
 	/// Removes this handler's commands and aliases. Calling this more than once has no further effect.
 	public void unregister() {
-		if (removal != null) {
-			removal.run();
-			removal = null;
+		var action = removal.getAndSet(null);
+		if (action != null) {
+			action.run();
 		}
 	}
 

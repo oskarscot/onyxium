@@ -2,7 +2,7 @@ package dev.onyxium.command;
 
 import module java.base;
 
-record RegisteredCommand(CommandDefinition definition, MethodHandle invocation) {
+record RegisteredCommand(Object owner, CommandDefinition definition, MethodHandle invocation) {
 
 	void invoke(Object[] arguments) {
 		try {
@@ -13,7 +13,7 @@ record RegisteredCommand(CommandDefinition definition, MethodHandle invocation) 
 		}
 	}
 
-	static RegisteredCommand compile(Object handler, Method method, ArgumentParser parsers) {
+	static RegisteredCommand compile(Object owner, Object handler, Method method, ArgumentParser parsers) {
 		validateSignature(method);
 
 		var parameters = method.getParameters();
@@ -56,7 +56,7 @@ record RegisteredCommand(CommandDefinition definition, MethodHandle invocation) 
 					.bindTo(handler)
 					.asSpreader(Object[].class, parameters.length);
 
-			return new RegisteredCommand(definition, invocation);
+			return new RegisteredCommand(owner, definition, invocation);
 		}
 		catch (IllegalAccessException exception) {
 			throw new IllegalArgumentException("Command method is inaccessible: " + method, exception);

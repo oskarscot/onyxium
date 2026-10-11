@@ -22,7 +22,9 @@ public interface ProxyServer {
 	/// @return the proxy's event bus
 	EventBus eventBus();
 
-	/// Register handlers before starting the proxy. Dispatch runs on the calling thread.
+	/// The shared command dispatcher. Plugins should call `registerHandler(this, handler)`
+	/// in their enable callback so the proxy removes their commands after disable.
+	/// Dispatch runs on the calling thread.
 	CommandDispatcher commandDispatcher();
 
 	/// Returns the instance of [dev.onyxium.command.CommandSource] responsible for console command handling.

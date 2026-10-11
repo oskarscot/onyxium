@@ -14,8 +14,9 @@ import dev.onyxium.proxy.api.ProxyServer;
 /// the callbacks directly does not update the manager's state or check dependencies.
 ///
 /// Callbacks run synchronously on the caller's thread. They may query the plugin
-/// service, but cannot initiate another lifecycle transition. Each plugin owns the
-/// resources and API registrations it creates and must release them in [#disable()].
+/// service, but cannot initiate another lifecycle transition. The proxy removes commands
+/// and permission providers registered with the plugin as owner after [#disable()].
+/// Release other resources and registrations in that callback.
 public abstract class Plugin {
 
 	ProxyServer proxyServer;
@@ -66,9 +67,10 @@ public abstract class Plugin {
 	/// be released by [#disable()]. An activation failure also invokes that cleanup callback.
 	public void enable() { }
 
-	/// Remove the plugin's active behavior and release owned resources: unregister
-	/// commands, cancel tasks, and close connections or files. Registration cleanup
-	/// is the plugin's responsibility; the manager does not remove handlers automatically.
+	/// Release resources such as tasks, connections and files. After this callback, the
+	/// proxy removes commands and permission providers registered with this plugin as owner,
+	/// even if the callback throws. Commands registered with `registerHandler(this, handler)`
+	/// need no manual cleanup. Register them in [#enable()] so they return on re-enable.
 	///
 	/// This callback also runs after a partially completed load or enable, so tolerate
 	/// resources that were never created. The manager clears the enabled flag before
