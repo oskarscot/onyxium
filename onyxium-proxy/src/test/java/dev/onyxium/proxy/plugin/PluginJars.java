@@ -8,7 +8,6 @@ import com.nimbusds.jose.util.JSONObjectUtils;
 import module java.base;
 import org.slf4j.Logger;
 
-import dev.onyxium.command.Command;
 import dev.onyxium.eventbus.EventBus;
 import dev.onyxium.proxy.api.plugin.Plugin;
 
@@ -50,7 +49,7 @@ interface PluginJars {
 	}
 
 	static void compile(Path workspace, Path classes, Map<String, String> sources, Path[] dependencies) throws IOException {
-		var classpath = Stream.concat(Stream.of(Plugin.class, Command.class, EventBus.class, Logger.class).map(PluginJars::location),
+		var classpath = Stream.concat(Stream.of(Plugin.class, EventBus.class, Logger.class).map(PluginJars::location),
 			Stream.of(dependencies).map(Path::toString)).collect(Collectors.joining(File.pathSeparator));
 		var arguments = new ArrayList<>(List.of("--release", "25", "-classpath", classpath, "-d", classes.toString()));
 		for (var source : sources.entrySet()) {

@@ -1,16 +1,9 @@
 package dev.onyxium.proxy.api.message;
 
-import java.util.ArrayList;
-import java.util.Collections;
-import java.util.LinkedHashMap;
-import java.util.List;
-import java.util.Map;
-import java.util.Objects;
-import java.util.function.Consumer;
+import module java.base;
 
-/// Builder for the FormattedMessage, use it to display any sort of text to the player. You should
-/// this record directly, use the builder instead.
-///
+/// An immutable Hytale message tree containing raw text or translation IDs, formatting,
+/// and ordered child messages. Use [#builder()] to compose styled text and translations.
 ///
 /// # Example
 /// ```java
@@ -50,6 +43,17 @@ public record FormattedMessage(String rawText, String messageId, List<FormattedM
 
 	public static FormattedMessage translation(String key) {
 		return builder().translation(key).build();
+	}
+
+	/// Concatenates this node's text and its children's text in display order, without
+	/// colors, styles, links, or images. Translation keys are used as a fallback because
+	/// this model has no translation catalog; parameters are not substituted.
+	public String plainText() {
+		var text = Objects.requireNonNullElse(rawText, Objects.requireNonNullElse(messageId, ""));
+		if (children == null) {
+			return text;
+		}
+		return text + children.stream().map(FormattedMessage::plainText).collect(Collectors.joining());
 	}
 
 	public Builder toBuilder() {

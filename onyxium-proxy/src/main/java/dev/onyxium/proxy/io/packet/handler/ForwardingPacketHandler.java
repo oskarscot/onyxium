@@ -4,7 +4,7 @@ import io.netty.handler.codec.quic.QuicStreamChannel;
 import io.netty.util.concurrent.Future;
 import module java.base;
 
-import dev.onyxium.command.CommandDispatcher;
+import dev.onyxium.proxy.api.command.CommandDispatcher;
 import dev.onyxium.proxy.io.connection.HytaleProtocolConnection;
 import dev.onyxium.proxy.io.packet.Packet;
 import dev.onyxium.proxy.io.packet.chat.ChatMessage;

@@ -47,9 +47,9 @@ import io.netty.handler.ssl.util.InsecureTrustManagerFactory;
 import org.junit.After;
 import org.junit.Test;
 
-import dev.onyxium.command.Command;
 import dev.onyxium.forwarding.ForwardingToken;
 import dev.onyxium.proxy.OnyxiumProxy;
+import dev.onyxium.proxy.api.command.Command;
 import dev.onyxium.proxy.api.command.ConsoleSource;
 import dev.onyxium.proxy.api.message.FormattedMessage;
 import dev.onyxium.proxy.api.player.Player;

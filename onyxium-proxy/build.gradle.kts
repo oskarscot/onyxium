@@ -11,14 +11,6 @@ abstract class MockitoAgentProvider : CommandLineArgumentProvider {
     override fun asArguments(): Iterable<String> = listOf("-javaagent:${agentJar.singleFile.absolutePath}")
 }
 
-abstract class PermissionsPluginProvider : CommandLineArgumentProvider {
-    @get:InputFiles
-    @get:PathSensitive(PathSensitivity.RELATIVE)
-    abstract val pluginJar: ConfigurableFileCollection
-
-    override fun asArguments(): Iterable<String> = listOf("-Donyxium.permissions.jar=${pluginJar.singleFile.absolutePath}")
-}
-
 val mockitoAgent = configurations.create("mockitoAgent")
 
 
@@ -55,6 +47,7 @@ dependencies {
     testImplementation(libs.junit)
     testImplementation(libs.assertj)
     testImplementation(libs.mockito)
+    testImplementation(libs.logback.classic)
     mockitoAgent(libs.mockito) { isTransitive = false }
 }
 

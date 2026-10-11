@@ -2,11 +2,11 @@ package dev.onyxium.proxy.command;
 
 import module java.base;
 
-import dev.onyxium.command.Command;
-import dev.onyxium.command.CommandSource;
-import dev.onyxium.command.Greedy;
 import dev.onyxium.proxy.api.ProxyServer;
+import dev.onyxium.proxy.api.command.Command;
+import dev.onyxium.proxy.api.command.CommandSource;
 import dev.onyxium.proxy.api.command.ConsoleSource;
+import dev.onyxium.proxy.api.command.Greedy;
 import dev.onyxium.proxy.api.message.FormattedMessage;
 import dev.onyxium.proxy.api.player.Player;
 

@@ -7,8 +7,8 @@ import static org.junit.Assert.assertThrows;
 import module java.base;
 import org.junit.Test;
 
-import dev.onyxium.command.Command;
-import dev.onyxium.command.CommandDispatcher;
+import dev.onyxium.proxy.api.command.Command;
+import dev.onyxium.proxy.api.command.CommandDispatcher;
 import dev.onyxium.proxy.api.command.ConsoleSource;
 import dev.onyxium.proxy.auth.HytaleDeviceLogin.GameProfile;
 import dev.onyxium.proxy.command.ProxyConsole;

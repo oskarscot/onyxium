@@ -6,9 +6,9 @@ import org.jetbrains.annotations.NotNull;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
-import dev.onyxium.command.CommandDispatcher;
 import dev.onyxium.eventbus.EventBus;
 import dev.onyxium.proxy.api.ProxyServer;
+import dev.onyxium.proxy.api.command.CommandDispatcher;
 import dev.onyxium.proxy.api.network.NetworkManager;
 import dev.onyxium.proxy.api.permission.PermissionService;
 import dev.onyxium.proxy.api.player.Player;

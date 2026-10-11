@@ -31,9 +31,9 @@ import io.netty.handler.ssl.util.InsecureTrustManagerFactory;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
-import dev.onyxium.command.CommandDispatcher;
 import dev.onyxium.forwarding.ForwardedIdentity;
 import dev.onyxium.forwarding.ForwardingToken;
+import dev.onyxium.proxy.api.command.CommandDispatcher;
 import dev.onyxium.proxy.api.message.FormattedMessage;
 import dev.onyxium.proxy.io.QuicTransportParameters;
 import dev.onyxium.proxy.io.connection.DisconnectErrorCode;

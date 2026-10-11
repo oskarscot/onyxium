@@ -4,8 +4,9 @@ import module java.base;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
-import dev.onyxium.command.CommandDispatcher;
+import dev.onyxium.proxy.api.command.CommandDispatcher;
 import dev.onyxium.proxy.api.command.ConsoleSource;
+import dev.onyxium.proxy.api.message.FormattedMessage;
 
 public final class ProxyConsole implements ConsoleSource {
 
@@ -23,8 +24,8 @@ public final class ProxyConsole implements ConsoleSource {
 	}
 
 	@Override
-	public void sendMessage(String message) {
-		LOGGER.info("{}", message);
+	public void sendMessage(FormattedMessage message) {
+		LOGGER.info("{}", message.plainText());
 	}
 
 	/// Reuses the login reader so buffered input after profile selection is preserved.

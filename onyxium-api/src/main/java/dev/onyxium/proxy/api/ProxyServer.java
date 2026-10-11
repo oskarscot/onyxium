@@ -2,8 +2,8 @@ package dev.onyxium.proxy.api;
 
 import module java.base;
 
-import dev.onyxium.command.CommandDispatcher;
 import dev.onyxium.eventbus.EventBus;
+import dev.onyxium.proxy.api.command.CommandDispatcher;
 import dev.onyxium.proxy.api.command.ConsoleSource;
 import dev.onyxium.proxy.api.network.NetworkManager;
 import dev.onyxium.proxy.api.permission.PermissionService;
@@ -27,7 +27,7 @@ public interface ProxyServer {
 	/// Dispatch runs on the calling thread.
 	CommandDispatcher commandDispatcher();
 
-	/// Returns the instance of [dev.onyxium.command.CommandSource] responsible for console command handling.
+	/// Returns the instance of [dev.onyxium.proxy.api.command.CommandSource] responsible for console command handling.
 	ConsoleSource console();
 
 	/// Shared plugin management API. Use it to look up loaded plugins or request

@@ -11,11 +11,11 @@ import org.junit.Rule;
 import org.junit.Test;
 import org.junit.rules.TemporaryFolder;
 
-import dev.onyxium.command.Command;
-import dev.onyxium.command.CommandDefinition;
-import dev.onyxium.command.CommandDispatcher;
-import dev.onyxium.command.CommandSource;
 import dev.onyxium.proxy.api.ProxyServer;
+import dev.onyxium.proxy.api.command.Command;
+import dev.onyxium.proxy.api.command.CommandDefinition;
+import dev.onyxium.proxy.api.command.CommandDispatcher;
+import dev.onyxium.proxy.api.command.CommandSource;
 import dev.onyxium.proxy.api.plugin.Plugin;
 import dev.onyxium.proxy.lifecycle.LifecycleException;
 import dev.onyxium.proxy.permission.ProxyPermissionService;
